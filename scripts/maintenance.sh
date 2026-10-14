@@ -94,7 +94,10 @@ CADDY
       exit 1
     fi
     if [ "$(sed -n 's/^CLOVER_SHARED_CADDY=//p' .env | head -n 1)" = "1" ]; then
-      if ! python3 scripts/host-caddy.py configure-env --env-file .env; then
+      # This maintenance script runs inside the docker:cli container, which has
+      # neither Python nor the host filesystem. The certificate helper has
+      # both the host root mounted at /host and the project mounted at /clover.
+      if ! docker exec clover-certificate-helper python3 /app/host-caddy.py configure-env --host-root /host --env-file /clover/.env; then
         cp ".env.before-domain-$stamp" .env
         cp "caddy/Caddyfile.before-domain-$stamp" caddy/Caddyfile
         docker compose up -d --force-recreate $services || true
