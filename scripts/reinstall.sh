@@ -16,6 +16,7 @@ cp -p .env "$ENV_BACKUP"
 chmod 600 "$ENV_BACKUP"
 log "原配置已备份为 ${ENV_BACKUP}；.env 与 Docker 数据卷将保留。"
 
+bash scripts/ensure-roundcube-env.sh
 set -a
 # shellcheck disable=SC1091
 . ./.env
@@ -24,7 +25,7 @@ set +a
 COMPOSE_FILES=(-f compose.yaml)
 
 log "拉取已发布镜像…"
-docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy \
+docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy roundcube \
   || { echo "镜像拉取失败；没有覆盖部署。请检查 GHCR 网络后重试。" >&2; exit 1; }
 
 log "构建证书助手并覆盖部署服务…"
@@ -51,6 +52,7 @@ done
 docker compose "${COMPOSE_FILES[@]}" ps
 if [ "$ok" -eq 1 ]; then
   bash scripts/admin-bootstrap.sh
+  bash scripts/configure-roundcube.sh
   log "覆盖部署完成；原配置和数据卷已保留。"
 else
   warn "服务已覆盖部署，但面板健康检查未通过；查看 docker logs --tail 100 clover-panel。数据卷仍保留。"

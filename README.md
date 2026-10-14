@@ -4,7 +4,7 @@
 
 > **当前版本：v0.1.0-alpha（Alpha）**；M0–M5 功能已完成，仍在持续验收与改进。
 > 规划全文见 [docs/plan.md](docs/plan.md)；VPS 真机验收清单见 [docs/m0-checklist.md](docs/m0-checklist.md)。
-> 锁定选型：**Next.js 单体面板 · SQLite · MIT · 单管理员 · Clover 内置 WebMail**
+> 锁定选型：**Next.js 单体面板 · SQLite · MIT · 单管理员 · Roundcube Webmail**
 
 ## 架构
 
@@ -118,7 +118,7 @@ clover admin reset <用户名>
 | 反垃圾 / 队列 / 日志 | ✔ rspamd controller(11334) 统计、mailq、supervisorctl（含 STOPPED）、mail.log 全可读 |
 | 投递体检 | ✔ DNSBL 五家全部查询成功 + 域健康五项 |
 | prefix 规则下发 | ✔ 面板写 pcre 表 → `virtual_alias_maps` 生效（`texthash:/etc/postfix/virtual pcre:/tmp/...regex.cf`） |
-| WebMail SSO | ✔ 首次打开时自动生成内部认证凭据并配置 DMS |
+| WebMail SSO | ✔ 安装/更新配置 DMS，面板一次性票据免密进入 |
 | **邮件投递** | 出站 ✔ SMTP 587 STARTTLS 认证发信 → **Gmail 接收**（`250 2.0.0 OK … gsmtp`）且 DKIM 已签名；入站需确认 VPS 服务商放行公网 TCP 25 |
 
 > 测试提示：`amavis` 对缺 `Date` / `Message-ID` 头的消息会直接判 `BAD-HEADER-0` 并退信
@@ -146,7 +146,7 @@ DKIM 需 `setup config dkim` 且 `mail.txt` 是 zone 格式、rspamd 端口应�
 | API Token | `Authorization: Bearer clover_…`，覆盖全部 `/api/v1` 端点，明文仅创建时展示一次、库里只存 sha256、吊销即刻失效 |
 | 面板 session | HMAC 无状态签名 cookie，httpOnly + SameSite=strict，12h |
 
-敏感设置（CF Token / WebMail master 密码）AES-256-GCM 加密存储（密钥由 `SESSION_SECRET` 经 scrypt 派生）。
+敏感设置（CF Token / Roundcube 内部认证密码）AES-256-GCM 加密存储（密钥由 `SESSION_SECRET` 经 scrypt 派生）。
 一切变更写审计日志（API token 调用记为 `api:<名字>`）。端点文档见面板 `/api-docs` 页面。
 
 ## 面板能力
@@ -156,7 +156,7 @@ DKIM 需 `setup config dkim` 且 `mail.txt` 是 zone 格式、rspamd 端口应�
 - **路由规则（对标 PurelyMail 四类）**：`exact` 精确 / `prefix` 前缀 / `nonuser` 非用户 / `catchall` 全捕获，多目标转发、优先级排序；
   exact/nonuser/catchall 走 DMS 字面量 alias，**prefix 自动生成 Postfix pcre 正则表**（clover 独占文件，user-patches 接线，改完即 reload）
 - **建域向导**：填域名 → DNS 记录预览 → 确认创建
-- **WebMail**：面板内置轻量客户端，面板会话免密进入，服务端连接 IMAP/SMTP
+- **WebMail**：官方 Roundcube 原生客户端，通过面板一次性票据免密进入
 - **监控**：rspamd 统计看板、邮件队列/服务进程/日志、投递体检（DNSBL + 域健康）
 - **审计日志**：一切变更（含失败登录、二次验证失败）写 `audit_logs`
 
@@ -285,7 +285,7 @@ curl -X POST http://localhost:3000/api/dev/seed
 │   ├── backup.sh         # 备份（DB 一致性快照 + DMS 配置 tar + 轮转）
 │   └── upgrade.sh        # 升级（自动备份 + 拉取 + 重建 + 健康检查）
 ├── deploy/
-│   └── dms-user-patches.master-user.sh   # DMS 侧补丁模板（master user + prefix 正则表接线）
+│   └── roundcube/              # Roundcube 配置与登录桥接插件
 ├── .env.example          # 参数模板（install.sh 据此生成 .env）
 ├── docs/
 │   ├── plan.md           # 项目规划 v0.1（需求/调研/架构/数据模型/里程碑）
@@ -300,14 +300,18 @@ curl -X POST http://localhost:3000/api/dev/seed
 
 ## WebMail
 
-面板「WebMail」页选择已启用邮箱即可免密读写邮件。WebMail API 只接受 Clover 面板登录会话，
-通过 Docker 内部网络连接 Dovecot IMAP TLS（993）与 Postfix STARTTLS（587）；主密码和 Dovecot
-Master 凭据只留在服务端，不传给浏览器。首次使用会自动生成并加密保存内部认证凭据，写入 DMS 持久化配置，
-邮件容器重启后仍会生效。邮件正文按纯文本呈现，不加载远程 HTML 内容。
+使用官方 Roundcube 1.6 稳定分支的 Apache 镜像与 Elastic 主题，界面和邮件功能保持原生。
+面板「Webmail」页选择邮箱后免密打开全屏客户端；直接访问 /webmail/ 也可使用邮箱地址和密码登录。
+星标、文件夹、搜索、富文本编辑器、草稿、通讯录及邮件阅读均由 Roundcube 提供，不再维护自研邮件客户端。
 
-客户端支持查看最近邮件、搜索当前列表、回复、撰写发送、标记未读、移入垃圾箱和 Junk 文件夹。
-如果在 `.env` 开启 DMS 的 `RSPAMD_LEARN=1`，把邮件移入/移出 Junk 会反馈给 Rspamd。该 DMS 选项使用全局学习库，
-只应在邮箱使用者可信时启用。先在「环境检查」完成邮件主机、邮件 TLS 和 IMAP 端口检查。
+Clover 只提供登录桥接：一次性票据有效期 60 秒，Roundcube 经私有 Docker 网络兑换，
+再通过 Dovecot master user 登录。内部密码只在服务器之间传递，不进入浏览器。
+安装、快捷菜单更新和修复部署会生成桥接密钥并同步认证配置。
+roundcube-db 卷保存 Roundcube 通讯录、偏好与会话；邮箱数据仍保存在 DMS 邮件卷。
+
+全局附件默认 100 MB，可勾选无限额；保存后同步 PHP 上传限制、Roundcube 原生完整邮件限制和 DMS 上限。
+远程图片使用 Roundcube 原生拦截/按需加载功能，默认不自动显示。
+自研 Webmail 的页面、邮件 API、编辑器和相关依赖已经移除；升级会清理其生成的认证配置。
 
 ## 建域向导
 
@@ -330,7 +334,7 @@ Master 凭据只留在服务端，不传给浏览器。首次使用会自动生�
 1. `bash install.sh` 实跑 + 安装器生成/保留管理员并显示必要凭据 + 登录
 2. 建域 → 推 CF（真 token）→ 「投递体检」五项全绿
 3. 25 端口收发实测 + rDNS/送达率（`docs/m0-checklist.md` 逐项）
-4. WebMail：面板首次自动配置内部认证，实测免密登录及邮件容器重启后的持久性
+4. WebMail：面板一次性票据免密进入，实测免密登录及邮件容器重启后的持久性
 5. 监控页真数据（rspamd 统计/队列/日志）；Passkey 在 HTTPS 域名下用指纹/面容实测
 6. DMS 镜像版本钉死 tag（当前 `latest`）；`/rspamd` 反代 assets 路径按需微调
 

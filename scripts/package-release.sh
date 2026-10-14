@@ -39,12 +39,13 @@ FILES=(
   scripts/clover.sh
   scripts/admin-bootstrap.sh
   scripts/reinstall.sh
-  scripts/enable-dms-patches.sh
   scripts/maintenance.sh
-  scripts/remove-roundcube.sh
+  scripts/ensure-roundcube-env.sh
+  scripts/configure-roundcube.sh
   scripts/install-cli.sh
   scripts/upgrade.sh
-  deploy/dms-user-patches.master-user.sh
+  deploy/roundcube/config/clover.php
+  deploy/roundcube/plugins/clover_sso/clover_sso.php
   deploy/certificate-helper/Dockerfile
   scripts/certificates.py
   scripts/host-caddy.py

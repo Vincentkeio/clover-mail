@@ -27,7 +27,7 @@ export default function SettingsForm({ initial, advancedContent }: { initial: Se
 
   return <div className="settings-shell">
         <form className="panel settings-section" onSubmit={save}>
-          <h2>手动与服务参数</h2><p className="hint">适用于需要自行维护主机、DNS 策略或 Webmail 的部署。</p>
+          <h2>手动与服务参数</h2><p className="hint">适用于需要自行维护主机与 DNS 策略 的部署。</p>
           <h3 className="settings-subhead" id="dns-mode">DNS 生成参数</h3><div className="form-row"><div className="field"><label htmlFor="dns-mode-select">DNS 管理方式</label><select id="dns-mode-select" value={dnsMode} onChange={(e) => setDnsMode(e.target.value as typeof dnsMode)}><option value="cloudflare">Cloudflare 连接与推送</option><option value="manual">手动设置 DNS</option></select></div><div className="field"><label htmlFor="dmarc-policy">DMARC 策略</label><select id="dmarc-policy" value={dmarc} onChange={(e) => setDmarc(e.target.value as typeof dmarc)}><option value="none">none · 观察期</option><option value="quarantine">quarantine</option><option value="reject">reject</option></select></div></div>
           <div className="form-row"><label className="check"><input type="checkbox" checked={!spfStrict} onChange={(e) => setSpfStrict(!e.target.checked)} />SPF 使用 ~all（软失败）</label><label className="check"><input type="checkbox" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} />生成 autoconfig、MTA-STS、TLS-RPT 记录</label></div>
           <div className="form-row"><button className="primary" disabled={busy}>{busy ? '保存中…' : '保存高级设置'}</button>{msg && <div role="status" className={'msg ' + (msg.ok ? 'ok' : 'err')}>{msg.text}</div>}</div>

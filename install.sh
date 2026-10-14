@@ -389,7 +389,8 @@ say "使用已发布的 GHCR 面板镜像：${CLOVER_PANEL_IMAGE:-ghcr.io/vincen
 step "4/6 拉取镜像并启动（首次约 3–10 分钟，ClamAV 镜像较大）"
 
 # 拉取失败就停止，避免拿旧缓存启动，或因为源码目录存在而转成本地构建。
-run docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy \
+run bash scripts/ensure-roundcube-env.sh
+run docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy roundcube \
   || die "无法拉取发布镜像；请检查网络与 GHCR 访问后重试。未启动旧缓存镜像。"
 run docker compose "${COMPOSE_FILES[@]}" build certificate-helper
 run docker compose "${COMPOSE_FILES[@]}" up -d --no-build
@@ -466,6 +467,7 @@ else
     docker exec clover-panel node -e \
       "fetch('http://127.0.0.1:3000/api/health').then(r=>r.text()).then(t=>console.log('  '+t))" || true
     bash scripts/admin-bootstrap.sh
+    bash scripts/configure-roundcube.sh || die "Roundcube 免密初始化失败，请检查邮件服务后运行 bash scripts/configure-roundcube.sh。"
   else
     warn "面板未在 90s 内就绪，查看日志：docker logs --tail 100 clover-panel"
   fi

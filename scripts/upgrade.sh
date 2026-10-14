@@ -202,11 +202,8 @@ if [ -x scripts/install-cli.sh ]; then
   bash scripts/install-cli.sh "$(pwd)" || warn "快捷命令安装未完成；服务升级继续，可稍后手动运行 bash scripts/install-cli.sh"
 fi
 
-# Roundcube is retired. Delete its container and only the two named volumes it owned;
-# mail-data, mail-config, panel and certificate volumes are deliberately untouched.
-if [ -f scripts/remove-roundcube.sh ]; then
-  bash scripts/remove-roundcube.sh || warn "旧 Roundcube 清理未完成；请检查 clover-roundcube 容器和专属卷"
-fi
+bash scripts/ensure-roundcube-env.sh
+export ROUNDCUBE_SSO_SECRET="$(sed -n 's/^ROUNDCUBE_SSO_SECRET=//p' .env)"
 
 # 3) 拉取正式发布镜像并重启面板。
 # 安装目录可能带有 panel/ 源码（例如 bootstrap 解压的 GitHub 源码包），
@@ -214,7 +211,7 @@ fi
 COMPOSE_FILES=(-f compose.yaml)
 
 log "拉取 GHCR 面板镜像及邮件/Caddy 镜像…"
-docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy || {
+docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy roundcube || {
   echo "发布镜像拉取失败；未重建或重启面板。请检查 GHCR 网络后重试。" >&2
   exit 1
 }
@@ -247,7 +244,9 @@ for i in $(seq 1 30); do
 done
 
 if [ "${ok}" -eq 1 ]; then
-  log "升级完成，面板健康。查看状态：docker compose ps"
+  bash scripts/configure-roundcube.sh
+  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+  log "升级完成，面板与 Roundcube 免密连接已就绪。查看状态：docker compose ps"
   log "迁移日志：docker logs clover-panel | grep migrations"
 else
   warn "面板健康检查未通过！查看日志：docker logs --tail 100 clover-panel"

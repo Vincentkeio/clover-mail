@@ -55,7 +55,7 @@
 
 **周边可复用组件**（直接抄作业）：
 - 反垃圾：rspamd（有 WebUI + HTTP API `/scan` `/symbols` `/stats`，可嵌面板）+ redis + ClamAV，参考 DMS 组合
-- WebMail：Clover 内置轻量客户端；面板会话免密访问，服务端直连 IMAP/SMTP
+- WebMail：官方 Roundcube 客户端；面板一次性票据免密进入
 - 证书：acme.sh `dns_cf` 插件 + CF Token，通配符 `*.domain` 是事实标准
 - DNS 自动化：Cloudflare API v4（zone 查询、records CRUD、**批量 batch 写**），已有先例 `d-horner/mailcow-CloudFlare-DNS` 可参考；MIAB/PurelyMail 都只做到"复制粘贴"，**自动推送是空白点**
 - 投递体检：MXToolbox REST API（黑名单/SPF/DKIM/DMARC 一键检查），可脚本化
@@ -83,7 +83,7 @@
 | 无数据库、无 API，只有 CLI + 配置文件 | SQLite 控制库为唯一事实源 → 面板所有变更通过 `docker exec docker-mailserver setup ...` 官方 CLI 落地（官方路径最稳，自带校验和 reload），同步结果回查校验 |
 | 无 UI，第三方 UI 均不成熟 | 自研，无历史包袱，直接对标 PurelyMail |
 | 无 DNS 一键导出 | DNS 生成器 + CF 批量推送（见 6.3/6.4） |
-| 无 WebMail | 面板内置 IMAP/SMTP Webmail，并由 Clover 面板会话授权 |
+| 无 WebMail | 官方 Roundcube 客户端，由 Clover 面板一次性票据授权 |
 | 无队列/日志视图 | 读 DMS 容器日志（supervisord）+ dovecot 队列命令，面板聚合展示 |
 | DKIM 只到目录，无展示 | 读取 DMS dkim 目录公钥，自动填入 DNS 生成器 |
 
@@ -234,8 +234,8 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records
 
 ### 6.6 WebMail 与单点登录
 
-- 内置 Webmail 由 Next.js 面板直接提供
-- 登录打通：面板用户点「打开邮箱」→ 用 Dovecot master user  credentials 自动登录（不暴露密码）
+- Webmail 由官方 Roundcube 镜像提供，保留原生邮件功能
+- 登录打通：面板用户点「打开邮箱」→ 一次性票据经服务器兑换，通过 Dovecot master user 自动登录（不暴露密码）
 
 ### 6.7 面板认证
 
@@ -268,7 +268,7 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records
 | **M1 控制面** | DB schema、DMS 同步 CLI 封装、面板域名/邮箱/别名 CRUD、路由规则四类匹配 | 2 周 |
 | **M2 DNS 自动化** | DNS 生成器、CF Token 管理、batch 一键推送、dig 检测 checklist、BIND 导出 | 1 周 |
 | **M3 反垃圾与监控** | rspamd 反代与统计页、隔离区放行、队列/日志视图、MXToolbox 体检 | 1 周 |
-| **M4 产品化** | 面板内置 Webmail、Passkey/TOTP、建域向导、Dashboard 用量总览 | 1.5 周 |
+| **M4 产品化** | Roundcube Webmail、Passkey/TOTP、建域向导、Dashboard 用量总览 | 1.5 周 |
 | **M5 打磨** | 备份/恢复、升级流程、开放 API + 文档、Logo/命名/许可 | 1.5 周 |
 | 合计 | | **~8 周**（多人并行可压到 3–4 周） |
 
@@ -291,7 +291,7 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records
 2. 数据库：**SQLite**（推荐单机轻量）/ PostgreSQL
 3. 许可证：MIT（推荐）/ Apache-2.0
 4. MVP 账号模型：单管理员（推荐，PM 是自助注册但自托管先单管理员）/ 直接做多用户注册
-5. WebMail：Clover 内置轻量 IMAP/SMTP 客户端
+5. WebMail：官方 Roundcube 原生客户端
 6. 是否有现成 VPS + 域名可以尽早开始 M0 验证（25 端口 + 送达率是项目生死线，越早真机验证越好）
 7. Logo/命名规范（三叶草 🍀 意向已明确）
 

@@ -7,6 +7,7 @@ import { db } from '@/db'
 import { mailboxes } from '@/db/schema'
 import { config } from './config'
 import { getGlobalMailSettings } from './settings'
+import { syncRoundcubePolicy } from './roundcube-policy'
 
 const execFileAsync = promisify(execFile)
 const CONFIG_DIR = '/tmp/docker-mailserver'
@@ -118,6 +119,7 @@ export async function syncMailboxPolicies() {
     const appliedLimit = Number((await docker(['postconf', '-h', 'message_size_limit'])).stdout.trim())
     if (appliedLimit !== messageSizeLimitBytes) throw new Error(`Postfix 邮件大小上限未能应用（期望 ${messageSizeLimitBytes}，实际 ${appliedLimit}）。`)
     await docker(['postfix', 'reload'])
+    await syncRoundcubePolicy()
     return { ok: true as const, messageSizeLimitBytes }
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : String(error) }

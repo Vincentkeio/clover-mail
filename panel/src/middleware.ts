@@ -14,6 +14,9 @@ const PUBLIC_API = [
   '/api/dev/seed', // 路由内要求 ALLOW_SEED=true
   '/api/auth/webauthn/login/options', // Passkey 登录入口（公开，凭据校验在路由内）
   '/api/auth/webauthn/login/verify',
+  // Private Docker calls use the shared SSO key in the route; Caddy blocks public access.
+  '/api/internal/roundcube/ticket',
+  '/api/internal/roundcube/bootstrap',
 ]
 
 export function middleware(req: NextRequest) {

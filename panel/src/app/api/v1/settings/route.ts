@@ -30,11 +30,10 @@ export async function PATCH(req: Request) {
     allowSieve?: boolean
     allowSmtp?: boolean
     allowExternalImages?: boolean
-    allowExecutableAttachments?: boolean
     maxAttachmentMb?: number
   } = body ?? {}
 
-  const mailBooleans = ['allowImap', 'allowPop3', 'allowSieve', 'allowSmtp', 'allowExternalImages', 'allowExecutableAttachments'] as const
+  const mailBooleans = ['allowImap', 'allowPop3', 'allowSieve', 'allowSmtp', 'allowExternalImages'] as const
   if (mailBooleans.some((key) => patch[key] !== undefined && typeof patch[key] !== 'boolean')) {
     return NextResponse.json({ error: '全局邮箱开关必须为布尔值' }, { status: 400 })
   }
@@ -68,7 +67,6 @@ export async function PATCH(req: Request) {
     allowSieve: 'protocol_sieve',
     allowSmtp: 'protocol_smtp',
     allowExternalImages: 'allow_external_images',
-    allowExecutableAttachments: 'allow_executable_attachments',
     maxAttachmentMb: 'max_attachment_mb',
   } as const
   for (const [field, key] of Object.entries(globalMailKeys) as Array<[keyof typeof globalMailKeys, string]>) {
@@ -84,7 +82,7 @@ export async function PATCH(req: Request) {
     const { encryptSecret } = await import('@/lib/crypto')
     await setSetting('cf_api_token', encryptSecret(patch.cfApiToken.trim()), true)
   }
-  const mailPolicyChanged = ['allowImap', 'allowPop3', 'allowSieve', 'allowSmtp', 'maxAttachmentMb'].some((key) => key in patch)
+  const mailPolicyChanged = ['allowImap', 'allowPop3', 'allowSieve', 'allowSmtp', 'maxAttachmentMb', 'allowExternalImages'].some((key) => key in patch)
   const policySync = mailPolicyChanged ? await syncMailboxPolicies() : { ok: true as const }
   await audit(admin.username, 'settings.update', undefined, {
     vpsIp: patch.vpsIp !== undefined,
@@ -98,7 +96,6 @@ export async function PATCH(req: Request) {
     allowSieve: patch.allowSieve,
     allowSmtp: patch.allowSmtp,
     allowExternalImages: patch.allowExternalImages,
-    allowExecutableAttachments: patch.allowExecutableAttachments,
     maxAttachmentMb: patch.maxAttachmentMb,
     policySynced: policySync.ok,
   })

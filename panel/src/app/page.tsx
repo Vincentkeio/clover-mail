@@ -21,7 +21,7 @@ const ACTION_LABELS: Record<string, string> = {
   'dns.generate': '生成 DNS',
   'dns.push': '推送 CF',
   'dns.check': 'DNS 检测',
-  'webmail.open': 'WebMail 登录',
+  'roundcube.open': 'Roundcube 登录',
   'settings.update': '改设置',
   'auth.login': '登录面板',
   'system.reconcile': '对账',

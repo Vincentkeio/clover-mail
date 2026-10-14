@@ -73,7 +73,7 @@
 
 **结论**：手机+电脑都用 → 用 IMAP。只有一台设备且想省服务器空间 → 用 POP3（务必勾「保留副本」免得误删）。
 
-POP3 和 ManageSieve 监听器由 `.env` 中的 `ENABLE_POP3=1`、`ENABLE_MANAGESIEVE=1` 启动（示例配置默认启用）。IMAP、POP3、ManageSieve 和 SMTP 的账号访问开关集中在「邮箱账户 → 全局邮箱设置」中，默认全部启用；关闭 IMAP 会同时关闭内置 Webmail。
+POP3 和 ManageSieve 监听器由 `.env` 中的 `ENABLE_POP3=1`、`ENABLE_MANAGESIEVE=1` 启动（示例配置默认启用）。IMAP、POP3、ManageSieve 和 SMTP 的账号访问开关集中在「邮箱账户 → 全局邮箱设置」中，默认全部启用；关闭 IMAP 会同时关闭Roundcube。
 
 ---
 
@@ -96,7 +96,7 @@ POP3 和 ManageSieve 监听器由 `.env` 中的 `ENABLE_POP3=1`、`ENABLE_MANAGE
 | DMS 单封邮件大小上限 | 按「全局邮箱设置」中的附件总量自动设置，并预留 MIME 编码空间；默认附件上限 100 MB 时，DMS 总邮件上限约 **150 MiB**。 |
 | 邮箱配额 | 面板建邮箱时填的「配额 MB」；不填 = 不限 |
 | 附件总量限制 | 全局设置同时应用于 Webmail；DMS 的 Postfix 上限是完整 MIME 邮件的全局值，客户端（如 Foxmail）也受此值限制。勾选“无限额”可关闭上限；API 中填 0 表示无限额。 |
-| 远程图片 / 可执行附件 | 远程图片默认拦截；可执行附件默认禁止。可在「全局邮箱设置」中统一调整；这两项用于 Webmail 的加载、发送和下载行为。 |
+| 远程图片 | 默认不自动显示，使用 Roundcube 原生图片拦截/按需加载功能；全局邮箱设置可调整自动显示默认值。 |
 | **外网来信** | 若 VPS 服务商或防火墙未放行公网 TCP 25，则无法接收外部来信 |
 | 发信被 Gmail 判垃圾 | 检查 **PTR 反解**是否指向 `mail.<域名>`，并确认 SPF / DKIM / DMARC 已配置 |
 | 自动配置（autoconfig） | ❌ 暂未生效：DNS 里 `autoconfig.<域名>` 有 CNAME，但服务器**未托管自动配置 XML**，客户端自动发现会失败 → 按本文手动填参数 |

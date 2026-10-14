@@ -56,7 +56,18 @@ function Status({ value }: { value?: boolean }) {
 
 export function Nav({ username }: { username: string }) {
   const pathname = usePathname()
+  const [collapsed, setCollapsed] = useState(false)
+  const [navigationReady, setNavigationReady] = useState(false)
   const [health, setHealth] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem('clover-nav-collapsed') === 'true') } catch { /* Storage is optional. */ }
+    setNavigationReady(true)
+  }, [])
+  function toggleNavigation() {
+    const next = !collapsed
+    setCollapsed(next)
+    try { localStorage.setItem('clover-nav-collapsed', String(next)) } catch { /* Storage is optional. */ }
+  }
   useEffect(() => {
     let live = true
     fetch('/api/v1/system/environment', { cache: 'no-store' })
@@ -76,7 +87,7 @@ export function Nav({ username }: { username: string }) {
     : pathname === href || pathname.startsWith(`${href}/`)
 
   return <>
-    <aside className="app-sidebar">
+    <aside id="panel-navigation" className="app-sidebar" data-collapsed={collapsed}>
       <Link href="/" className="brand-lockup"><img src="/icon.svg" alt="" className="brand-icon"/><span><b>clover</b><small>三叶草邮局</small></span></Link>
       <nav aria-label="主导航" className="sidebar-nav">{GROUPS.map((group) => <section key={group.title} className="nav-group">
         <h2 className="nav-heading">{group.title}</h2><div className="nav-items">{group.links.map((item) => {
@@ -86,10 +97,12 @@ export function Nav({ username }: { username: string }) {
             <Icon name={item.icon}/><span>{item.label}</span><Status value={item.status ? health[item.status] : undefined}/>
           </Link>
         })}</div></section>)}</nav>
+      <button type="button" className="sidebar-collapse" onClick={toggleNavigation} aria-controls="panel-navigation" aria-expanded={!collapsed} disabled={!navigationReady}>收起管理导航</button>
       <div className="sidebar-account"><span className="account-avatar">{username.slice(0, 1).toUpperCase()}</span><span className="account-name">{username}</span><NavLogout/></div>
     </aside>
-    <header className="mobile-header">
-      <div className="mobile-brand"><Link href="/"><img src="/icon.svg" alt="" className="brand-icon"/></Link><b>clover</b><span className="mobile-user">{username}</span><NavLogout/></div>
+    {collapsed && <button type="button" className="app-nav-reveal" onClick={toggleNavigation} aria-controls="panel-navigation" aria-expanded="false">展开管理导航</button>}
+    <header id="panel-mobile-navigation" className="mobile-header" data-collapsed={collapsed}>
+      <div className="mobile-brand"><Link href="/"><img src="/icon.svg" alt="" className="brand-icon"/></Link><b>clover</b><span className="mobile-user">{username}</span><NavLogout/><button type="button" className="mobile-collapse" onClick={toggleNavigation} aria-controls="panel-mobile-navigation" aria-expanded={!collapsed} disabled={!navigationReady}>收起</button></div>
       <nav aria-label="主导航" className="mobile-nav">{GROUPS.map((group) => {
         const groupActive = group.links.some((item) => activeFor(item.href))
         return <details key={group.title} className="mobile-nav-group" open={groupActive}><summary>{group.title}<span aria-hidden="true">⌄</span></summary>

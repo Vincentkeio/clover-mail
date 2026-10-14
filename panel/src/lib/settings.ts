@@ -11,7 +11,6 @@ export type GlobalMailSettings = {
   allowSieve: boolean
   allowSmtp: boolean
   allowExternalImages: boolean
-  allowExecutableAttachments: boolean
   maxAttachmentMb: number
 }
 
@@ -32,15 +31,12 @@ const KEY_CF_TOKEN_DISABLED = 'cf_api_token_disabled'
 const KEY_DMARC = 'dmarc_policy'
 const KEY_SPF = 'spf_strict'
 const KEY_ADVANCED = 'advanced_dns'
-const KEY_MASTER_USER = 'webmail_master_user'
-const KEY_MASTER_PASS = 'webmail_master_password'
 const GLOBAL_MAIL_SETTINGS = {
   allowImap: 'protocol_imap',
   allowPop3: 'protocol_pop3',
   allowSieve: 'protocol_sieve',
   allowSmtp: 'protocol_smtp',
   allowExternalImages: 'allow_external_images',
-  allowExecutableAttachments: 'allow_executable_attachments',
   maxAttachmentMb: 'max_attachment_mb',
 } as const
 
@@ -65,7 +61,6 @@ export async function getGlobalMailSettings(): Promise<GlobalMailSettings> {
   const allowSieve = values.get(GLOBAL_MAIL_SETTINGS.allowSieve)
   const allowSmtp = values.get(GLOBAL_MAIL_SETTINGS.allowSmtp)
   const allowExternalImages = values.get(GLOBAL_MAIL_SETTINGS.allowExternalImages)
-  const allowExecutableAttachments = values.get(GLOBAL_MAIL_SETTINGS.allowExecutableAttachments)
   const maxRaw = values.get(GLOBAL_MAIL_SETTINGS.maxAttachmentMb)
   const parsedLimit = Number(maxRaw ?? 100)
   return {
@@ -74,7 +69,6 @@ export async function getGlobalMailSettings(): Promise<GlobalMailSettings> {
     allowSieve: allowSieve !== 'false',
     allowSmtp: allowSmtp !== 'false',
     allowExternalImages: allowExternalImages === 'true',
-    allowExecutableAttachments: allowExecutableAttachments === 'true',
     maxAttachmentMb: Number.isInteger(parsedLimit) && parsedLimit >= 0 && parsedLimit <= 102400 ? parsedLimit : 100,
   }
 }
@@ -92,25 +86,6 @@ export async function getCfToken(): Promise<string | null> {
   }
   const fromEnv = process.env.CLOVER_CF_API_TOKEN || process.env.CF_API_TOKEN
   return fromEnv?.trim() || null
-}
-
-/** master user 密码解密取出；无库内值时回落 .env 预置 */
-export async function getMasterPassword(): Promise<string | null> {
-  const raw = await getSetting(KEY_MASTER_PASS)
-  if (raw) {
-    try {
-      return decryptSecret(raw)
-    } catch {
-      return null
-    }
-  }
-  return process.env.CLOVER_WEBMAIL_MASTER_PASSWORD?.trim() || null
-}
-
-export async function getMasterUser(): Promise<string | null> {
-  const stored = await getSetting(KEY_MASTER_USER)
-  if (stored) return stored
-  return process.env.CLOVER_WEBMAIL_MASTER_USER?.trim() || null
 }
 
 export async function getVpsIp(): Promise<string> {

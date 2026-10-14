@@ -80,10 +80,10 @@ export default function MailSetupGuide({
               <td>
                 网页收发
                 <HelpTip label="网页邮箱说明">
-                  面板左侧「WebMail」页选邮箱可免密收发邮件，授权由当前 Clover 面板登录会话提供。
+                  面板左侧「WebMail」页选邮箱可免密进入 Roundcube，授权由当前 Clover 面板登录会话提供。
                 </HelpTip>
               </td>
-              <td className="mono">本面板 /webmail</td>
+              <td className="mono">Roundcube /webmail/</td>
               <td>—</td>
               <td>HTTPS</td>
             </tr>

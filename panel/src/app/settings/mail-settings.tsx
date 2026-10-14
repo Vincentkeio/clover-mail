@@ -63,10 +63,8 @@ export default function GlobalMailSettings({ initial }: { initial: GlobalMailSet
       </fieldset>
       <fieldset className="global-mail-content">
         <legend>内容与附件</legend>
-        <label className="check"><input type="checkbox" checked={settings.allowExternalImages} onChange={(event) => toggle('allowExternalImages', event.target.checked)} />允许用户按需加载邮件中的远程图片</label>
-        <p className="hint-text">默认拦截外部图片；开启后，用户仍需在每封邮件中主动选择加载。</p>
-        <label className="check"><input type="checkbox" checked={settings.allowExecutableAttachments} onChange={(event) => toggle('allowExecutableAttachments', event.target.checked)} />允许 Webmail 发送和下载可执行附件</label>
-        <p className="hint-text">默认禁止；此项控制 Webmail，不会阻止 DMS 接收此类附件。</p>
+        <label className="check"><input type="checkbox" checked={settings.allowExternalImages} onChange={(event) => toggle('allowExternalImages', event.target.checked)} />默认显示邮件中的远程图片</label>
+        <p className="hint-text">默认关闭，使用 Roundcube 原生的图片拦截和按需加载功能。</p>
         <div className="global-attachment-controls">
           <label className="field global-attachment-limit">附件合计上限（MB）<input type="number" min={1} max={102400} step={1} value={finiteAttachmentMb} disabled={unlimited} onChange={(event) => setFiniteAttachmentMb(event.target.value)} /></label>
           <label className="check global-attachment-unlimited"><input type="checkbox" checked={unlimited} onChange={(event) => {
@@ -75,7 +73,7 @@ export default function GlobalMailSettings({ initial }: { initial: GlobalMailSet
             setSettings((current) => ({ ...current, maxAttachmentMb: checked ? 0 : (Number(finiteAttachmentMb) || 100) }))
           }} />无限额</label>
         </div>
-        <p className="hint-text">默认 100 MB；勾选“无限额”会关闭大小上限。DMS 全局邮件上限会额外预留 MIME 编码空间，Webmail 发信与附件下载使用此值。</p>
+        <p className="hint-text">默认 100 MB；勾选“无限额”会关闭大小上限。DMS 与 Roundcube 使用统一限制，并为完整 MIME 邮件预留编码空间。</p>
       </fieldset>
       <div className="form-row"><button className="primary" disabled={busy}>{busy ? '保存并同步中…' : '保存全局邮箱设置'}</button>{message && <div role="status" className={'msg ' + (message.ok ? 'ok' : 'err')}>{message.text}</div>}</div>
     </form>

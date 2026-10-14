@@ -24,7 +24,7 @@ services:
       - mail-state:/var/mail-state                  # rspamd/redis/fail2ban 状态
       - mail-config:/tmp/docker-mailserver          # DMS 配置（账号/DKIM/证书/user-patches.sh）
       # ⚠️ 不在此挂载 user-patches.sh：源文件不存在时 Docker 会建出**空目录**占位，
-      # 导致补丁静默失效（实机踩过）。启用请用：./scripts/enable-dms-patches.sh
+      # 导致补丁静默失效。Roundcube 免密认证由面板生成并安装持久化补丁。
     restart: unless-stopped
     stop_grace_period: 1m
     # DMS 镜像自带 HEALTHCHECK（dms-healthcheck）
@@ -38,10 +38,12 @@ services:
     environment:
       - DATABASE_PATH=/app/data/clover.db
       - DMS_CONTAINER=docker-mailserver
+      - ROUNDCUBE_POLICY_PATH=/app/roundcube-policy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - panel-data:/app/data
+      - roundcube-policy:/app/roundcube-policy
       # 面板经 docker exec 调 DMS 内部 setup CLI 落地账号（不裸写配置文件）
       - /var/run/docker.sock:/var/run/docker.sock:ro
     expose:
@@ -55,6 +57,38 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  roundcube:
+    image: roundcube/roundcubemail:1.6.x-apache
+    container_name: clover-roundcube
+    environment:
+      - ROUNDCUBEMAIL_DB_TYPE=sqlite
+      - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mail
+      - ROUNDCUBEMAIL_DEFAULT_PORT=993
+      - ROUNDCUBEMAIL_SMTP_SERVER=tls://mail
+      - ROUNDCUBEMAIL_SMTP_PORT=587
+      - ROUNDCUBEMAIL_REQUEST_PATH=/webmail/
+      - ROUNDCUBEMAIL_SKIN=elastic
+      - ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE=100M
+      - CLOVER_SSO_SECRET=${ROUNDCUBE_SSO_SECRET}
+      - PHP_INI_SCAN_DIR=:/var/clover-policy
+    volumes:
+      - roundcube-db:/var/roundcube/db
+      - roundcube-policy:/var/clover-policy:ro
+      - ./deploy/roundcube/config:/var/roundcube/config:ro
+      - ./deploy/roundcube/plugins/clover_sso:/var/www/html/plugins/clover_sso:ro
+    expose:
+      - "80"
+    depends_on:
+      - panel
+      - mail
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/') === false ? 1 : 0);"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   caddy:
     image: caddy:2
@@ -74,6 +108,7 @@ services:
       - caddy-config:/config
     depends_on:
       - panel
+      - roundcube
     restart: unless-stopped
 
   certificate-helper:
@@ -98,5 +133,7 @@ volumes:
   mail-state:
   mail-config:
   panel-data:
+  roundcube-db:
+  roundcube-policy:
   caddy-data:
   caddy-config:

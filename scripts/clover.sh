@@ -52,10 +52,11 @@ show_logs() {
     compose logs --tail 100 -f "$service"
   else
     echo "选择日志服务："
-    select service in panel mail caddy certificate-helper 返回; do
+    select service in panel mail roundcube caddy certificate-helper 返回; do
       case "$service" in
         panel) compose logs --tail 100 -f panel; break ;;
         mail) compose logs --tail 100 -f mail; break ;;
+        roundcube) compose logs --tail 100 -f roundcube; break ;;
         caddy) compose logs --tail 100 -f caddy; break ;;
         certificate-helper) compose logs --tail 100 -f certificate-helper; break ;;
         返回) break ;;
@@ -72,14 +73,15 @@ repair_deploy() {
   echo "将重新拉取已发布镜像并部署 Clover 服务。配置、数据库和邮件卷会保留。"
   read -r -p "输入 REDEPLOY 继续：" confirm </dev/tty
   [ "$confirm" = REDEPLOY ] || { echo "已取消。"; return; }
-  if ! compose pull panel mail caddy; then
+  bash scripts/ensure-roundcube-env.sh
+  if ! compose pull panel mail caddy roundcube; then
     echo "镜像拉取失败；没有重建或重启服务，请检查 GHCR 网络后重试。"
     return 1
   fi
-  [ ! -f scripts/remove-roundcube.sh ] || bash scripts/remove-roundcube.sh
   compose build certificate-helper
   compose up -d --no-build --force-recreate
   bash scripts/admin-bootstrap.sh
+  bash scripts/configure-roundcube.sh
   echo "重新部署完成；状态如下："
   compose ps
 }
