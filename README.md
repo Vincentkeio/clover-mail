@@ -89,7 +89,7 @@ clover admin reset <用户名>
   - push main / 打 `v*` tag → 自动构建（**默认 `linux/amd64`**）
   - **arm64 按需**：Actions 页 → Run workflow → platforms 选 `linux/amd64,linux/arm64`
     （arm64 走 QEMU 模拟编译 `better-sqlite3` 原生模块，实测既慢又易 OOM，故不放进默认流程）
-- Alpha 安装包：`.github/workflows/publish-release.yml` 在推送版本 tag 后自动生成并附加到 GitHub Release；发布包不包含面板源码，直接拉取 GHCR 镜像。
+- 当前 Alpha 安装包：GitHub Release `v0.1.0-alpha` 提供 `clover.tar.gz`；安装包使用 `.env.example` 固定拉取同版本 GHCR 面板镜像。发布包不包含面板源码。维护者可用 `scripts/package-release.sh` 生成版本包并上传到 Release。
   - 用内置 `GITHUB_TOKEN` 发布，**不需要**额外 PAT 的 Packages 权限
 - `compose.yaml` 默认拉该镜像（固定 digest 见 GitHub Packages 页）；本地改代码构建：
   `docker compose -f compose.yaml -f compose.build.yaml up -d --build`
