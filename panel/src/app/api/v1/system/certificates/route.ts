@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { getCurrentAdmin, unauthorized } from '@/lib/auth'
+import { readCertificateHelperStatus } from '@/lib/certificate-status'
 
 const execFileAsync = promisify(execFile)
 export const dynamic = 'force-dynamic'
@@ -16,12 +17,7 @@ function errorText(error: unknown) {
 }
 
 async function readStatus() {
-  const { stdout } = await execFileAsync(
-    'docker',
-    ['exec', 'clover-certificate-helper', 'python3', '/app/certificates.py', 'status'],
-    { timeout: 20_000, maxBuffer: 1024 * 1024 },
-  )
-  return JSON.parse(stdout.trim())
+  return readCertificateHelperStatus()
 }
 
 export async function GET() {
