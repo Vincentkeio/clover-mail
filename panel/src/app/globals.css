@@ -236,6 +236,8 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .settings-tab:hover { color:#32463b; }
 .settings-tab.is-active { border-bottom-color:var(--green); color:var(--green-dark); }
 .settings-section { margin-bottom:14px; }
+.settings-section > form > .form-row { align-items:center; }
+.settings-section > form > .form-row .msg { flex:1 1 260px; margin:0; }
 .settings-section .section-title { align-items:flex-start; }
 .settings-section .section-title h2 { margin:0 0 3px; font-size:17px; }
 .settings-section .section-title .hint { margin:0; }
