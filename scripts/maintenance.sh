@@ -86,10 +86,10 @@ CADDY
     else
       services='mail panel caddy certificate-helper'
     fi
-    if ! docker compose up -d --force-recreate $services; then
+    if ! docker compose up -d --force-recreate --no-deps $services; then
       cp ".env.before-domain-$stamp" .env
       cp "caddy/Caddyfile.before-domain-$stamp" caddy/Caddyfile
-      docker compose up -d --force-recreate $services || true
+      docker compose up -d --force-recreate --no-deps $services || true
       echo '应用失败，已尝试恢复原配置。'
       exit 1
     fi
@@ -100,7 +100,7 @@ CADDY
       if ! docker exec clover-certificate-helper python3 /app/host-caddy.py configure-env --host-root /host --env-file /clover/.env; then
         cp ".env.before-domain-$stamp" .env
         cp "caddy/Caddyfile.before-domain-$stamp" caddy/Caddyfile
-        docker compose up -d --force-recreate $services || true
+        docker compose up -d --force-recreate --no-deps $services || true
         echo '宿主机 Caddy 配置失败；已恢复 Clover 配置，原 Caddy 站点未被覆盖。' >&2
         exit 1
       fi
