@@ -1,0 +1,32 @@
+# 依赖与构建产物
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# 本地数据（SQLite 运行时文件，不提交）
+panel/data/*.db
+panel/data/*.db-journal
+panel/data/*.db-wal
+panel/data/*.db-shm
+
+# 敏感配置（由 install.sh 从 .env.example 生成）
+.env
+.env.bak*
+.env.local
+.env*.local
+
+# 系统杂物
+.DS_Store
+Thumbs.db
+*.log
+
+# TypeScript 增量构建产物
+*.tsbuildinfo
+
+# 助手内部状态（本地笔记，不发布）
+.workbuddy-ai/
+work/
+
+# 发布产物
+dist/

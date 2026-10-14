@@ -1,0 +1,18 @@
+{
+  # ACME 账号（Let's Encrypt 到期通知）
+  email {$ACME_EMAIL}
+}
+
+# clover 入口
+{$CLOVER_CADDY_SCHEME}://{$PANEL_HOSTNAME} {
+  # TLS 模式：留空 = 默认 ACME 真证书；测试机可设 CLOVER_TLS_DIRECTIVE="tls internal" 用自签
+  {$CLOVER_TLS_DIRECTIVE}
+  encode zstd gzip
+  reverse_proxy panel:3000
+
+  # rspamd WebUI（DMS 需 ENABLE_RSPAMD=1 且 compose 暴露 11334；保留前缀，
+  # 若 assets 404 说明 rspamd 不认子路径，需在真机按其 base path 方案调整）
+  handle /rspamd* {
+    reverse_proxy mail:11334
+  }
+}

@@ -1,0 +1,9 @@
+# 本地/自定义构建覆盖层：
+#   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+# 用于改面板代码后重建（发布版 compose.yaml 只拉 GHCR 镜像，不需要 panel/ 源码）
+services:
+  panel:
+    build:
+      context: ./panel
+      dockerfile: Dockerfile
+    image: ${CLOVER_PANEL_IMAGE:-ghcr.io/vincentkeio/clover-panel}:${CLOVER_TAG:-latest}

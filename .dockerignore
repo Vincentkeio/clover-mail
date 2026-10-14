@@ -1,0 +1,9 @@
+.git
+.env
+.env.*
+backups
+data
+deploy/acme
+panel
+node_modules
+**/__pycache__
