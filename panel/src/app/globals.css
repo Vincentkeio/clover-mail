@@ -440,6 +440,7 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .panel-settings-page .certificate-heading h2 { margin:0; font-size:18px; }
 .panel-maintenance { margin-top:16px; }
 .panel-maintenance-actions { display:flex; flex-wrap:wrap; gap:9px; }
+.panel-maintenance-actions .btn-link { display:inline-flex; min-height:38px; align-items:center; justify-content:center; line-height:1.2; text-align:center; white-space:nowrap; }
 .panel-maintenance .hint { margin:11px 0 0; }
 .maintenance-log { margin-top:13px; color:#65746c; font-size:12px; }
 .maintenance-log summary { cursor:pointer; }
