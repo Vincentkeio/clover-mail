@@ -122,6 +122,7 @@ input[type="checkbox"] { width:16px; height:16px; accent-color:var(--green); }
 .primary:hover,button.primary:hover { border-color:var(--green-dark); background:var(--green-dark); color:white; }
 .primary:disabled,button:disabled { cursor:not-allowed; opacity:.55; }
 button:not(.primary):not(.danger):not(.link),.btn-link { min-height:38px; padding:0 12px; border:1px solid #d8e0da; border-radius:6px; background:white; color:#415148; font-size:13px; }
+.btn-link { display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1.2; vertical-align:middle; }
 button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:#f5f8f5; color:var(--ink); }
 .danger { min-height:38px; padding:0 11px; border:1px solid #edcecb; border-radius:6px; background:white; color:#a53631; font-size:12px; }
 .danger:hover { background:#fff5f3; }
@@ -414,8 +415,10 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .mailbox-create-form { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; }
 .mailbox-create-form .field { flex:1 1 160px; min-width:130px; }
 .mailbox-at { padding-bottom:10px; color:#69776d; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; }
+.mailbox-page .grid td { vertical-align:middle; }
 .mailbox-actions { min-width:170px; white-space:nowrap; }
-.mailbox-actions>* { margin-right:6px; }
+.mailbox-action-buttons { display:flex; align-items:center; gap:6px; }
+.mailbox-action-buttons>* { margin:0; }
 .mailbox-reset { display:flex; align-items:flex-end; gap:8px; margin-top:10px; }
 .mailbox-reset .field { min-width:140px; }
 .mailbox-list-actions { display:flex; align-items:center; flex-wrap:wrap; gap:9px; }
@@ -442,7 +445,6 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .panel-settings-page .certificate-heading h2 { margin:0; font-size:18px; }
 .panel-maintenance { margin-top:16px; }
 .panel-maintenance-actions { display:flex; flex-wrap:wrap; gap:9px; }
-.panel-maintenance-actions .btn-link { display:inline-flex; min-height:38px; align-items:center; justify-content:center; line-height:1.2; text-align:center; white-space:nowrap; }
 .panel-maintenance .hint { margin:11px 0 0; }
 .maintenance-log { margin-top:13px; color:#65746c; font-size:12px; }
 .maintenance-log summary { cursor:pointer; }

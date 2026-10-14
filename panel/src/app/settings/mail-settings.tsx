@@ -50,7 +50,6 @@ export default function GlobalMailSettings({ initial }: { initial: GlobalMailSet
   }
 
   return <section className="panel settings-section" id="mail-policy">
-    <div className="section-title"><div><h2>全局邮箱设置</h2><p className="hint">这些策略统一应用于所有邮箱；协议和邮件大小会同步到 DMS。</p></div></div>
     <form onSubmit={save}>
       <fieldset className="global-mail-protocols">
         <legend>可用协议</legend>

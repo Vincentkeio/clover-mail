@@ -73,7 +73,7 @@
 
 **结论**：手机+电脑都用 → 用 IMAP。只有一台设备且想省服务器空间 → 用 POP3（务必勾「保留副本」免得误删）。
 
-POP3 和 ManageSieve 监听器由 `.env` 中的 `ENABLE_POP3=1`、`ENABLE_MANAGESIEVE=1` 启动（示例配置默认启用）。IMAP、POP3、ManageSieve 和 SMTP 的账号访问开关集中在「高级参数 → 全局邮箱设置」中，默认全部启用；关闭 IMAP 会同时关闭内置 Webmail。
+POP3 和 ManageSieve 监听器由 `.env` 中的 `ENABLE_POP3=1`、`ENABLE_MANAGESIEVE=1` 启动（示例配置默认启用）。IMAP、POP3、ManageSieve 和 SMTP 的账号访问开关集中在「邮箱账户 → 全局邮箱设置」中，默认全部启用；关闭 IMAP 会同时关闭内置 Webmail。
 
 ---
 

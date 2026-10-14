@@ -15,6 +15,7 @@ const GROUPS: Array<{ title: string; links: NavItem[] }> = [
   ] },
   { title: '邮箱账户', links: [
     { href: '/mailboxes', label: '邮箱账户', icon: 'mail' },
+    { href: '/mail-settings', label: '全局邮箱设置', icon: 'sliders' },
     { href: '/webmail', label: 'Webmail', icon: 'inbox' },
     { href: '/routing', label: '别名与转发', icon: 'route' },
   ] },

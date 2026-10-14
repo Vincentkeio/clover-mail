@@ -56,7 +56,7 @@
 | B9 | 开放 API | 设置 → 生成 token → 用 curl 调 `/api/v1/domains` | 返回 JSON；吊销后立即 401 |
 | B10 | 备份 | 设置页或 `GET /api/v1/system/backup?what=db` | 下载 SQLite 一致性快照（可用 sqlite3 打开校验） |
 | B11 | 对账 | `POST /api/v1/system/reconcile {"heal":true}` | `dmsReachable: true`、`errors: []` |
-| B12 | **全局邮箱设置** | 设置 → 全局邮箱设置 → 分别关闭/开启 IMAP、POP3、ManageSieve、SMTP | 设置对所有邮箱和客户端生效；关闭 IMAP 后 Webmail 也无法连接 |
+| B12 | **全局邮箱设置** | 邮箱账户 → 全局邮箱设置 → 分别关闭/开启 IMAP、POP3、ManageSieve、SMTP | 设置对所有邮箱和客户端生效；关闭 IMAP 后 Webmail 也无法连接 |
 | B13 | 邮箱客户端 | 域详情 → 邮箱区 → 展开「客户端配置指引」 | 表格按实际部署生成（含该域的 mail 主机名、993/995/587/465）；POP3 未开时不显示 POP3 行 |
 
 ---

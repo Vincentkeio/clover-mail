@@ -73,12 +73,12 @@ export default function MailboxManager({ domains, mailboxes, mailHost }: { domai
       {message && <p className={`msg ${message.ok ? 'ok' : 'err'}`} role="status">{message.text}</p>}
     </section>
     <section className="panel"><div className="section-title"><div><h2>客户端连接</h2><p className="hint">所有邮箱共用邮件主机和 TLS 证书。用户名填写完整邮箱地址，密码使用创建账户时设置的密码。</p></div><Link className="btn-link" href="/webmail">打开 Webmail →</Link></div><p><span className="mono">{mailHost || '尚未设置邮件主机'}</span> · IMAP TLS <b>993</b> · SMTP TLS <b>465</b> / STARTTLS <b>587</b></p></section>
-    <section className="panel"><div className="section-title"><div><h2>现有账户</h2><p className="hint">协议、隐私和附件策略统一在全局邮箱设置中调整。</p></div><div className="mailbox-list-actions"><span className="count">{mailboxes.length} 个</span><Link className="btn-link" href="/settings#mail-policy">全局邮箱设置 →</Link></div></div>
+    <section className="panel"><div className="section-title"><div><h2>现有账户</h2><p className="hint">协议、隐私和附件策略统一在全局邮箱设置中调整。</p></div><div className="mailbox-list-actions"><span className="count">{mailboxes.length} 个</span><Link className="btn-link" href="/mail-settings#mail-policy">全局邮箱设置 →</Link></div></div>
       {mailboxes.length ? <div className="table-scroll"><table className="grid"><thead><tr><th>邮箱地址</th><th>域名</th><th>状态</th><th>管理</th></tr></thead><tbody>{mailboxes.map((box) => {
         const domain = domains.find((item) => item.id === box.domainId)
         return <tr key={box.id}><td className="mono">{box.login}</td><td>{domain?.name || '—'}</td><td><span className={`tag ${box.active ? 'ok' : 'err'}`}>{box.active ? '启用' : '停用'}</span></td><td className="mailbox-actions">
-          <button type="button" onClick={() => { setResetId(resetId === box.id ? null : box.id); setResetPassword(''); setMessage(null) }}>改密码</button>
-          <DeleteButton url={`/api/v1/mailboxes/${box.id}`} confirmText={`删除 ${box.login}？邮件服务账号会一并删除。`} />
+          <div className="mailbox-action-buttons"><button type="button" onClick={() => { setResetId(resetId === box.id ? null : box.id); setResetPassword(''); setMessage(null) }}>改密码</button>
+          <DeleteButton url={`/api/v1/mailboxes/${box.id}`} confirmText={`删除 ${box.login}？邮件服务账号会一并删除。`} /></div>
           {resetId === box.id && <div className="mailbox-reset"><label className="field">新密码<input type="password" autoComplete="new-password" minLength={10} value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} placeholder="至少 10 位" /></label><button className="primary" type="button" disabled={busy || resetPassword.length < 10} onClick={() => void changePassword(box.id)}>保存新密码</button></div>}
         </td></tr>
       })}</tbody></table></div> : <p className="empty">尚无邮箱账户。创建后可在 Webmail 中打开。</p>}
