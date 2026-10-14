@@ -159,7 +159,7 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .domain-heading .topbar { margin:5px 0 0; padding:0; border:0; }
 .back-link { color:#718077; font-size:12px; }
 .domain-tabs-list { display:flex; gap:2px; overflow-x:auto; border-bottom:1px solid var(--line); }
-.domain-tab { display:flex; min-height:48px; flex:0 0 auto; align-items:baseline; gap:9px; padding:0 14px; border:0; border-bottom:2px solid transparent; background:transparent; color:#65746c; font-size:13px; font-weight:600; line-height:1.25; white-space:nowrap; }
+.domain-tab { display:flex; min-height:48px; flex:0 0 auto; align-items:center; gap:9px; padding:0 14px; border:0; border-bottom:2px solid transparent; background:transparent; color:#65746c; font-size:13px; font-weight:600; line-height:1.25; white-space:nowrap; }
 .domain-tab small { color:#8a958e; font-size:11px; font-weight:400; line-height:1.25; }
 .domain-tab:hover { color:#25342d; }
 .domain-tab.is-active { border-bottom-color:var(--green); color:var(--green-dark); }

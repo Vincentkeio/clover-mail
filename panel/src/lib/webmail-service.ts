@@ -68,6 +68,32 @@ async function createImap(login: string) {
   return { client, login: mailLogin, masterUser, masterPassword, host, policy }
 }
 
+async function withImapReadRetry<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!/(?:unexpected close|(?:socket|connection).*(?:closed|reset|timed? ?out)|ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT)/i.test(message)) {
+      throw error
+    }
+    // Dovecot may close an IMAP session during a restart or brief load spike.
+    // Retry read-only listing once with a fresh connection; never retry mutations.
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    try {
+      return await operation()
+    } catch (retryError) {
+      const reason = retryError && typeof retryError === 'object' && 'reason' in retryError
+        ? String(retryError.reason || '') : ''
+      if (/unexpected close/i.test(retryError instanceof Error ? retryError.message : String(retryError))) {
+        throw new Error(reason
+          ? `邮件服务关闭了 IMAP 连接：${reason}`
+          : '邮件服务提前关闭了 IMAP 连接，已自动重试仍未恢复。请刷新；若持续发生，请检查 Dovecot 日志。')
+      }
+      throw retryError
+    }
+  }
+}
+
 function labelKeyword(label: string) {
   const normalized = label.trim().normalize('NFKC').slice(0, 40)
   if (!normalized) throw new Error('标签名称不能为空。')
@@ -126,20 +152,22 @@ async function appendSentCopy(login: string, rawMessage: Buffer, date: Date) {
 }
 
 export async function listFolders(login: string) {
-  const { client } = await createImap(login)
-  try {
-    const folders = (await client.list({ statusQuery: { messages: true, unseen: true } })).map((item) => ({
-      ...normalizeFolder(item),
-      messages: item.status?.messages ?? 0,
-      unseen: item.status?.unseen ?? 0,
-    }))
-    if (!folders.some((folder) => folder.path.toUpperCase() === 'INBOX')) {
-      folders.unshift({ path: 'INBOX', name: '收件箱', messages: 0, unseen: 0 })
+  return withImapReadRetry(async () => {
+    const { client } = await createImap(login)
+    try {
+      const folders = (await client.list({ statusQuery: { messages: true, unseen: true } })).map((item) => ({
+        ...normalizeFolder(item),
+        messages: item.status?.messages ?? 0,
+        unseen: item.status?.unseen ?? 0,
+      }))
+      if (!folders.some((folder) => folder.path.toUpperCase() === 'INBOX')) {
+        folders.unshift({ path: 'INBOX', name: '收件箱', messages: 0, unseen: 0 })
+      }
+      return folders
+    } finally {
+      await client.logout().catch(() => undefined)
     }
-    return folders
-  } finally {
-    await client.logout().catch(() => undefined)
-  }
+  })
 }
 
 function addresses(value: Array<{ name?: string | null; address?: string | null }> | undefined): string[] {
@@ -184,38 +212,49 @@ function buildSearchCriteria(query: string) {
 }
 
 export async function listMessages(login: string, folder: string, search: MailSearch = {}) {
-  const { client } = await createImap(login)
-  let lock: Awaited<ReturnType<typeof client.getMailboxLock>> | undefined
-  try {
-    lock = await client.getMailboxLock(folder)
-    const exists = client.mailbox && client.mailbox.exists || 0
-    if (!exists) return []
-    const query = search.query?.trim().slice(0, 300) || ''
-    const criteria = query ? buildSearchCriteria(query) : { all: true }
-    const matched = await client.search(criteria as never, { uid: true })
-    if (!matched || matched.length === 0) return []
-    const cap = Math.max(1, Math.min(search.limit || 100, 500))
-    const uids = matched.slice(-cap).sort((a, b) => b - a)
-    const messages = await client.fetchAll(uids.join(','), {
-      uid: true, envelope: true, flags: true, bodyStructure: true, size: true,
-    }, { uid: true })
-    return messages
-      .sort((a, b) => (b.uid || 0) - (a.uid || 0))
-      .map((message) => ({
-        uid: message.uid,
-        messageId: message.envelope?.messageId || '',
-        date: message.envelope?.date ? new Date(message.envelope.date).toISOString() : null,
-        from: addresses(message.envelope?.from).join(', ') || '未知发件人',
-        to: addresses(message.envelope?.to).join(', '),
-        subject: message.envelope?.subject || '(无主题)',
-        unread: !message.flags?.has('\\Seen'),
-        starred: Boolean(message.flags?.has('\\Flagged')),
-        labels: labelsFromFlags(message.flags),
-      }))
-  } finally {
-    lock?.release()
-    await client.logout().catch(() => undefined)
-  }
+  return withImapReadRetry(async () => {
+    const { client } = await createImap(login)
+    let lock: Awaited<ReturnType<typeof client.getMailboxLock>> | undefined
+    try {
+      lock = await client.getMailboxLock(folder)
+      const exists = client.mailbox && client.mailbox.exists || 0
+      if (!exists) return []
+      const query = search.query?.trim().slice(0, 300) || ''
+      const cap = Math.max(1, Math.min(search.limit || 100, 500))
+      let messages: Awaited<ReturnType<typeof client.fetchAll>>
+      if (query) {
+        const matched = await client.search(buildSearchCriteria(query) as never, { uid: true })
+        if (!matched || matched.length === 0) return []
+        const uids = matched.slice(-cap).sort((a, b) => b - a)
+        messages = await client.fetchAll(uids.join(','), {
+          uid: true, envelope: true, flags: true,
+        }, { uid: true })
+      } else {
+        // Avoid SEARCH ALL returning every UID for large mailboxes. Sequence numbers
+        // let IMAP fetch only the newest page without materializing the whole folder.
+        const firstSequence = Math.max(1, exists - cap + 1)
+        messages = await client.fetchAll(`${firstSequence}:*`, {
+          uid: true, envelope: true, flags: true,
+        })
+      }
+      return messages
+        .sort((a, b) => (b.uid || 0) - (a.uid || 0))
+        .map((message) => ({
+          uid: message.uid,
+          messageId: message.envelope?.messageId || '',
+          date: message.envelope?.date ? new Date(message.envelope.date).toISOString() : null,
+          from: addresses(message.envelope?.from).join(', ') || '未知发件人',
+          to: addresses(message.envelope?.to).join(', '),
+          subject: message.envelope?.subject || '(无主题)',
+          unread: !message.flags?.has('\\Seen'),
+          starred: Boolean(message.flags?.has('\\Flagged')),
+          labels: labelsFromFlags(message.flags),
+        }))
+    } finally {
+      lock?.release()
+      await client.logout().catch(() => undefined)
+    }
+  })
 }
 
 export async function listSendAttempts(login: string): Promise<WebmailSendAttempt[]> {

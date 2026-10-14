@@ -99,20 +99,24 @@ export default function Webmail({ mailboxes, maxAttachmentMb }: { mailboxes: Mai
   const [composeError, setComposeError] = useState('')
   const [notice, setNotice] = useState('')
   const maxAttachmentBytes = maxAttachmentMb === 0 ? Number.POSITIVE_INFINITY : maxAttachmentMb * 1024 * 1024
+  const messagesRequest = useRef(0)
 
   const loadMessages = useCallback(async (mailbox: string, folderPath: string, search = '') => {
+    const requestId = ++messagesRequest.current
     setLoadingMessages(true)
     setError('')
-    setSelected(null)
     try {
       const data = await readJson<{ messages: MessageRow[]; sendAttempts?: SendAttempt[] }>(await fetch(messagesUrl(mailbox, folderPath, search), { cache: 'no-store' }))
-      setMessages(data.messages)
-      setSendAttempts(data.sendAttempts || [])
+      if (requestId === messagesRequest.current) {
+        setMessages(data.messages)
+        setSendAttempts(data.sendAttempts || [])
+        setSelected((current) => current && data.messages.some((message) => message.uid === current.uid) ? current : null)
+      }
     } catch (caught) {
-      setMessages([])
-      setSendAttempts([])
-      setError(caught instanceof Error ? caught.message : '读取邮件失败。')
-    } finally { setLoadingMessages(false) }
+      if (requestId === messagesRequest.current) setError(caught instanceof Error ? caught.message : '读取邮件失败。')
+    } finally {
+      if (requestId === messagesRequest.current) setLoadingMessages(false)
+    }
   }, [])
 
   const loadFolders = useCallback(async (mailbox: string) => {
@@ -125,6 +129,11 @@ export default function Webmail({ mailboxes, maxAttachmentMb }: { mailboxes: Mai
     if (!mailbox) return
     setBusy(true)
     setError('')
+    setFolders([])
+    setMessages([])
+    setSendAttempts([])
+    setSelected(null)
+    setFolder('INBOX')
     setNotice('正在通过 Clover 面板会话安全连接邮件服务…')
     try {
       let status = await readJson<{ state: string; error?: string }>(await fetch('/api/v1/webmail/setup', {
@@ -284,7 +293,7 @@ export default function Webmail({ mailboxes, maxAttachmentMb }: { mailboxes: Mai
       {busy && <div role="status" className="webmail-loading">{notice || '正在连接邮件服务…'}</div>}
       {!busy && <div className="webmail-layout">
         <nav className="webmail-folders" aria-label="邮件文件夹">
-          {folders.map((item) => <button type="button" key={item.path} className={folder === item.path ? 'is-current' : ''} onClick={() => { setFolder(item.path); void loadMessages(login, item.path) }}>
+          {folders.map((item) => <button type="button" key={item.path} className={folder === item.path ? 'is-current' : ''} onClick={() => { setFolder(item.path); setMessages([]); setSelected(null); void loadMessages(login, item.path) }}>
             <span>{item.name}</span><span className="webmail-folder-counts" aria-label={`${item.messages} 封邮件，${item.unseen} 封未读`}>
               <small className="webmail-folder-total" title={`${item.messages} 封邮件`}>{item.messages}</small>
               {item.unseen > 0 && <small className="webmail-folder-unread" title={`${item.unseen} 封未读`}>{item.unseen} 未读</small>}
