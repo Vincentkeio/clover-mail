@@ -36,7 +36,7 @@ function buildDovecotConfig(version: string, enabledProtocols: string[]) {
   const sections = (['imap', 'pop3', 'sieve'] as const).map((protocol) => {
     const path = `${CONFIG_DIR}/clover-deny-${protocol}.passwd`
     const passdb = modern
-      ? `  passdb passwd-file {\n    passwd_file_path = ${path}\n    username_format = %u\n    deny = yes\n  }`
+      ? `  passdb passwd-file {\n    passwd_file_path = ${path}\n    deny = yes\n  }`
       : `  passdb {\n    driver = passwd-file\n    args = scheme=CRYPT username_format=%u ${path}\n    deny = yes\n  }`
     return `protocol ${protocol} {\n${passdb}\n}`
   })
