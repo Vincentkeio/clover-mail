@@ -82,9 +82,9 @@ CADDY
     fi
     echo '正在应用域名配置…'
     if [ "$previous_mail" = "$mail_host" ]; then
-      services='panel caddy cert-sync'
+      services='panel caddy certificate-helper'
     else
-      services='mail panel caddy cert-sync'
+      services='mail panel caddy certificate-helper'
     fi
     if ! docker compose up -d --force-recreate $services; then
       cp ".env.before-domain-$stamp" .env
