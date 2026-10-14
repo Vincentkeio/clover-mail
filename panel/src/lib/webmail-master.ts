@@ -11,7 +11,7 @@ import { syncMailboxPolicies } from './mailbox-policy-sync'
 const execFileAsync = promisify(execFile)
 const CONFIGURED_KEY = 'webmail_master_configured'
 const CONFIG_VERSION_KEY = 'webmail_master_config_version'
-const CONFIG_VERSION = '3'
+const CONFIG_VERSION = '4'
 const POLICY_SYNC_VERSION_KEY = 'mailbox_policy_sync_version'
 const POLICY_SYNC_VERSION = '1'
 const SETUP_STATUS_KEY = 'webmail_master_setup_status'
@@ -57,7 +57,7 @@ async function configure(): Promise<void> {
   if (!versionParts) throw new Error('无法识别邮件服务的 Dovecot 版本，Webmail 免密配置未应用。')
   const usesDovecot24Syntax = Number(versionParts[1]) > 2 || Number(versionParts[1]) === 2 && Number(versionParts[2]) >= 4
   const passdbConfig = usesDovecot24Syntax
-    ? `passdb passwd-file {
+    ? `passdb clover-webmail-master {
   driver = passwd-file
   passwd_file_path = /etc/dovecot/dovecot-master.passwd
   master = yes

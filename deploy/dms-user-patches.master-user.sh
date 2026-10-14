@@ -45,7 +45,7 @@ chmod 640 "${MASTER_PASSWD_FILE}"
 DOVECOT_VERSION="$(dovecot --version)"
 if [[ "${DOVECOT_VERSION}" =~ ^2\.([4-9]|[1-9][0-9])\. ]]; then
   cat > "${DOVECOT_CONFD_DIR}/auth-master.conf.ext" <<'EOF'
-passdb passwd-file {
+passdb clover-webmail-master {
   driver = passwd-file
   passwd_file_path = /etc/dovecot/dovecot-master.passwd
   master = yes
