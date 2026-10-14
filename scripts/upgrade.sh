@@ -43,6 +43,7 @@ update_from_archive() {
   tar -xzf "${tmp}/clover.tar.gz" -C "${tmp}/source"
   src="$(find "${tmp}/source" -mindepth 1 -maxdepth 1 -type d -print -quit)"
   [ -n "$src" ] && [ -f "$src/compose.yaml" ] && [ -f "$src/scripts/upgrade.sh" ] \
+    && [ -f "$src/scripts/maintenance.sh" ] \
     || { echo "下载的源码包不完整；当前服务未重建。" >&2; return 1; }
 
   log "非 Git 安装 → 使用 GitHub ${repo}@${ref} 更新源码"
@@ -186,6 +187,15 @@ if [ "${NO_PULL}" -eq 0 ]; then
     update_from_archive
   fi
 fi
+
+# The maintenance entry point is mounted into the dashboard's docker:cli job.
+# Keep it in the same source refresh as this upgrade script so the next job uses
+# the matching implementation instead of a stale host copy.
+[ -f scripts/maintenance.sh ] || {
+  echo "源码更新不完整：缺少 scripts/maintenance.sh；当前服务未重建。" >&2
+  exit 1
+}
+log "维护脚本已同步：scripts/maintenance.sh"
 
 # A previous version may not have installed the `clover` command yet.
 if [ -x scripts/install-cli.sh ]; then
