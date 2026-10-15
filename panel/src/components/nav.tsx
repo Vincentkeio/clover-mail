@@ -13,6 +13,10 @@ const GROUPS: Array<{ title: string; links: NavItem[] }> = [
     { href: '/panel-settings', label: '面板与主机', icon: 'sliders' },
     { href: '/environment', label: 'DNS 与 TLS', icon: 'certificate', status: 'setup' },
   ] },
+  { title: '检查环境', links: [
+    { href: '/environment-check', label: '环境检查', icon: 'check', status: 'overall' },
+    { href: '/monitor/deliverability', label: '投递检查', icon: 'pulse' },
+  ] },
   { title: '邮箱账户', links: [
     { href: '/mailboxes', label: '邮箱账户', icon: 'mail' },
     { href: '/mail-settings', label: '全局邮箱设置', icon: 'sliders' },
@@ -25,10 +29,6 @@ const GROUPS: Array<{ title: string; links: NavItem[] }> = [
     { href: '/monitor/spam', label: '反垃圾', icon: 'shield' },
     { href: '/monitor/queue', label: '队列与日志', icon: 'pulse' },
     { href: '/api-docs', label: 'API 文档', icon: 'code' },
-  ] },
-  { title: '检查环境', links: [
-    { href: '/environment-check', label: '环境检查', icon: 'check', status: 'overall' },
-    { href: '/monitor/deliverability', label: '投递检查', icon: 'pulse' },
   ] },
 ]
 
