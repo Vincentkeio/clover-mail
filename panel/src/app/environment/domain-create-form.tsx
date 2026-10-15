@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-export default function DomainCreateForm() {
+export default function DomainCreateForm({ onCreated }: { onCreated?: () => void }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -31,6 +31,7 @@ export default function DomainCreateForm() {
         ? `已创建并同步 DMS：${data.name}`
         : `已入库：${data.name}；DMS 同步失败，将由每日对账兜底`,
     })
+    onCreated?.()
     router.refresh()
   }
 

@@ -1,12 +1,11 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { asc, sql } from 'drizzle-orm'
+import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { domains, mailboxes, routingRules } from '@/db/schema'
 import { getCurrentAdmin } from '@/lib/auth'
-import DomainCreateForm from './domain-create-form'
-import DomainRowControls from './domain-row-controls'
 import { getMailHostname } from '@/lib/settings'
+import DomainCreateForm from '../environment/domain-create-form'
+import DomainListControls from './domain-list-controls'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,52 +18,28 @@ export default async function DomainsPage() {
     db.select({ domainId: mailboxes.domainId, n: sql<number>`count(*)` }).from(mailboxes).groupBy(mailboxes.domainId),
     db.select({ domainId: routingRules.domainId, n: sql<number>`count(*)` }).from(routingRules).groupBy(routingRules.domainId),
   ])
-  const mbMap = new Map(mbCounts.map((r) => [r.domainId, Number(r.n)]))
-  const ruMap = new Map(ruCounts.map((r) => [r.domainId, Number(r.n)]))
+  const mbMap = new Map(mbCounts.map((row) => [row.domainId, Number(row.n)]))
+  const ruMap = new Map(ruCounts.map((row) => [row.domainId, Number(row.n)]))
 
-  return (
-    <main className="wrap">
-      <div className="topbar"><div><p className="eyebrow">SETUP / 02</p><h1>域名配置</h1><p className="hint">添加邮件域名后生成 DNS 记录；所有域名共用面板设置中的邮件主机名和邮件服务证书。</p></div><span className="tag">{rows.length} 个域名</span></div>
-
-      <section className="panel">
-        <h2>添加域名</h2>
-        <p className="hint">建域即可准备归属验证、MX、SPF、DKIM 与 DMARC。接下来到 DNS 与 TLS 页面完成检查。</p>
-        <DomainCreateForm />
-      </section>
-
-      <section className="panel">
-        {rows.length === 0 ? (
-          <p className="empty">还没有域名，先在上方添加第一个。</p>
-        ) : (
-          <table className="grid domain-list-table">
-            <thead>
-              <tr>
-                <th>域名</th>
-                <th>邮件主机名</th>
-                <th>邮箱</th>
-                <th>规则</th>
-                <th>归属验证 TXT</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((d) => (
-                <tr key={d.id}>
-                  <td>
-                    <Link href={`/domains/${d.id}`}>{d.name}</Link>
-                  </td>
-                  <td className="mono">{getMailHostname(d.mailHostname || `mail.${d.name}`)}</td>
-                  <td>{mbMap.get(d.id) ?? 0}</td>
-                  <td>{ruMap.get(d.id) ?? 0}</td>
-                  <td className="mono">{d.ownershipToken}</td>
-                  <DomainRowControls id={d.id} name={d.name} active={d.active} mailboxCount={mbMap.get(d.id) ?? 0} ruleCount={ruMap.get(d.id) ?? 0} />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-    </main>
-  )
+  return <main className="wrap">
+    <div className="topbar"><div><p className="eyebrow">SETUP / 02</p><h1>域名配置</h1><p className="hint">添加邮件域名、查看归属验证信息，并管理域名启用状态。DNS 记录请到“DNS 与 TLS”管理。</p></div><span className="tag">{rows.length} 个域名</span></div>
+    <section className="panel">
+      <h2>添加域名</h2>
+      <p className="hint">添加后可在“DNS 与 TLS”中生成、同步并检查 MX、SPF、DKIM 与 DMARC 记录。</p>
+      <DomainCreateForm />
+    </section>
+    <section className="panel">
+      {rows.length === 0 ? <p className="empty">还没有域名，先在上方添加第一个。</p> : <div className="table-scroll"><table className="grid domain-list-table">
+        <thead><tr><th>域名</th><th>邮件主机名</th><th>邮箱</th><th>规则</th><th>归属验证 TXT</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody>{rows.map((domain) => <tr key={domain.id}>
+          <td><span className="mono">{domain.name}</span></td>
+          <td className="mono">{getMailHostname(domain.mailHostname || `mail.${domain.name}`)}</td>
+          <td>{mbMap.get(domain.id) ?? 0}</td>
+          <td>{ruMap.get(domain.id) ?? 0}</td>
+          <td className="mono">{domain.ownershipToken}</td>
+          <DomainListControls id={domain.id} name={domain.name} active={domain.active} mailboxCount={mbMap.get(domain.id) ?? 0} ruleCount={ruMap.get(domain.id) ?? 0} />
+        </tr>)}</tbody>
+      </table></div>}
+    </section>
+  </main>
 }

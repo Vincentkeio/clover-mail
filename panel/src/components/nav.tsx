@@ -26,7 +26,6 @@ const GROUPS: Array<{ title: string; links: NavItem[] }> = [
   ] },
   { title: '高级设置', links: [
     { href: '/updates', label: '更新与重启', icon: 'refresh' },
-    { href: '/manual-dns', label: '手动 DNS', icon: 'globe' },
     { href: '/settings', label: '高级参数', icon: 'sliders' },
     { href: '/monitor/spam', label: '反垃圾', icon: 'shield' },
     { href: '/monitor/queue', label: '队列与日志', icon: 'pulse' },

@@ -1,18 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-type Props = {
-  id: number
-  name: string
-  active: boolean
-  mailboxCount: number
-  ruleCount: number
-}
+type Props = { id: number; name: string; active: boolean; mailboxCount: number; ruleCount: number }
 
-export default function DomainRowControls({ id, name, active, mailboxCount, ruleCount }: Props) {
+export default function DomainListControls({ id, name, active, mailboxCount, ruleCount }: Props) {
   const router = useRouter()
   const [enabled, setEnabled] = useState(active)
   const [busy, setBusy] = useState<'toggle' | 'delete' | null>(null)
@@ -63,18 +56,10 @@ export default function DomainRowControls({ id, name, active, mailboxCount, rule
   }
 
   return <>
-    <td>
-      <button type="button" className="link domain-status-switch" role="switch" aria-checked={enabled} aria-label={`${enabled ? '停用' : '启用'} ${name}`} onClick={toggle} disabled={busy !== null}>
-        <span className="domain-switch-track" aria-hidden="true"><span className="domain-switch-thumb" /></span>
-        <span>{busy === 'toggle' ? '应用中…' : enabled ? '启用' : '停用'}</span>
-      </button>
-      {error && <p className="domain-row-error" role="alert">{error}</p>}
-    </td>
-    <td>
-      <div className="domain-row-actions">
-        <Link className="btn-link" href={`/domains/${id}`}>管理</Link>
-        <button type="button" className="danger" onClick={remove} disabled={busy !== null}>{busy === 'delete' ? '删除中…' : '删除'}</button>
-      </div>
-    </td>
+    <td><button type="button" className="link domain-status-switch" role="switch" aria-checked={enabled} aria-label={`${enabled ? '停用' : '启用'} ${name}`} onClick={toggle} disabled={busy !== null}>
+      <span className="domain-switch-track" aria-hidden="true"><span className="domain-switch-thumb" /></span>
+      <span>{busy === 'toggle' ? '应用中…' : enabled ? '启用' : '停用'}</span>
+    </button>{error && <p className="domain-row-error" role="alert">{error}</p>}</td>
+    <td><div className="domain-row-actions"><button type="button" className="danger" onClick={remove} disabled={busy !== null}>{busy === 'delete' ? '删除中…' : '删除'}</button></div></td>
   </>
 }

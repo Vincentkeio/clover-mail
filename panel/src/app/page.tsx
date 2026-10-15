@@ -69,7 +69,7 @@ export default async function Dashboard() {
           <h1>邮局总览</h1>
           <p className="dashboard-intro">管理域名、邮箱与投递状态。</p>
         </div>
-        <Link className="dashboard-secondary" href="/domains/new">＋ 添加域名</Link>
+        <Link className="dashboard-secondary" href="/domains">＋ 添加域名</Link>
       </header>
 
       <section className="dashboard-primary" aria-labelledby="cloudflare-title">
@@ -102,7 +102,7 @@ export default async function Dashboard() {
         <section className="panel dashboard-domains">
           <div className="section-title"><h2>最近域名</h2><Link href="/domains" className="dashboard-text-link">查看全部 →</Link></div>
           {domainRows.length > 0 ? <ul className="dashboard-domain-list">
-            {domainRows.map((d) => <li key={d.id}><span className="mono">{d.name}</span><Link className="dashboard-text-link" href={`/domains/${d.id}`}>管理 →</Link></li>)}
+            {domainRows.map((d) => <li key={d.id}><span className="mono">{d.name}</span><Link className="dashboard-text-link" href={`/environment?domain=${d.id}#domain-dns`}>DNS 设置 →</Link></li>)}
           </ul> : <p className="empty">还没有域名。添加域名后，可在 Cloudflare 连接页同步邮件 DNS。</p>}
         </section>
 

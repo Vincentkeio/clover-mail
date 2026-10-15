@@ -178,13 +178,6 @@ button:not(.primary):not(.danger):not(.link):not(:where(.nav-brand-toggle,.mobil
 .domain-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:8px; }
 .domain-heading .topbar { margin:5px 0 0; padding:0; border:0; }
 .back-link { color:#718077; font-size:12px; }
-.domain-tabs-list { display:flex; gap:2px; overflow-x:auto; border-bottom:1px solid var(--line); }
-.domain-tab { display:flex; min-height:48px; flex:0 0 auto; align-items:center; gap:9px; padding:0 14px; border:0; border-bottom:2px solid transparent; background:transparent; color:#65746c; font-size:13px; font-weight:600; line-height:1.25; white-space:nowrap; }
-.domain-tab small { color:#8a958e; font-size:11px; font-weight:400; line-height:1.25; }
-.domain-tab:hover { color:#25342d; }
-.domain-tab.is-active { border-bottom-color:var(--green); color:var(--green-dark); }
-.domain-tab.is-active small { color:#52826a; }
-.domain-tab-panel { padding-top:15px; }
 .table-scroll { max-width:100%; overflow-x:auto; }
 .domain-list-table td { vertical-align:middle; }
 .domain-list-table .btn-link { display:inline-flex; align-items:center; justify-content:center; }
@@ -330,13 +323,22 @@ button:not(.primary):not(.danger):not(.link):not(:where(.nav-brand-toggle,.mobil
 .environment-tls .certificate-heading h2 { font-size:14px; }
 .environment-domains { margin-top:20px; padding-top:16px; border-top:1px solid #e8ede9; }
 .environment-domain-heading { align-items:flex-start; margin-bottom:8px; }
-.environment-domain { display:grid; grid-template-columns:minmax(150px,.8fr) minmax(0,1.6fr) auto; gap:12px; align-items:center; padding:11px 0; border-top:1px solid #edf0ed; }
+.environment-domain-create { margin:10px 0 8px; padding:12px; border:1px solid #edf0ed; border-radius:7px; background:#fbfcfb; }
+.environment-domain-create .form-row { margin:0; }
+.environment-domain { display:grid; grid-template-columns:minmax(150px,.8fr) minmax(0,1.4fr) minmax(300px,1.5fr); gap:12px; align-items:center; padding:12px 0; border-top:1px solid #edf0ed; }
 .environment-domain:first-of-type { border-top:0; }
 .environment-domain-name { display:grid; min-width:0; gap:4px; }
+.environment-domain-title { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
 .environment-domain .hint { margin:2px 0 0; font-size:11px; }
 .environment-domain-checks { display:flex; flex-wrap:wrap; gap:5px; }
-.environment-domain-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.environment-domain-actions { display:flex; min-width:0; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:7px; }
 .environment-domain-actions .btn-link { display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; }
+.environment-domain-manage { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.environment-domain-manage .is-selected { border-color:#a9cfb8; background:#edf7f0; color:var(--green-dark); }
+.environment-domain-manage .domain-status-switch { padding-inline:4px; }
+.environment-domain-manage .domain-row-error { flex-basis:100%; }
+.environment-domain-settings { margin-top:16px; padding-top:16px; border-top:1px solid #e8ede9; scroll-margin-top:18px; }
+.environment-domain-settings>.section-title { align-items:flex-start; }
 .manual-dns-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid #edf0ed; }
 .manual-dns-row:first-child { border-top:0; }
 .manual-dns-row .hint { margin:2px 0 0; font-size:11px; }
@@ -493,9 +495,10 @@ button:not(.primary):not(.danger):not(.link):not(:where(.nav-brand-toggle,.mobil
   .environment-step-actions { grid-column:2; justify-content:flex-start; }
   .environment-dns-details { margin:0 12px 12px 47px; }
   .environment-dns-domain { align-items:flex-start; flex-direction:column; gap:7px; }
-  .environment-domain { grid-template-columns:1fr auto; }
+  .environment-domain { grid-template-columns:1fr; gap:8px; }
   .environment-domain-checks { grid-column:1/-1; grid-row:2; }
   .environment-domain-actions { grid-column:1/-1; justify-content:flex-start; flex-wrap:wrap; }
+  .environment-domain-settings { scroll-margin-top:10px; }
   .manual-dns-row { align-items:stretch; flex-direction:column; }
   .manual-dns-actions { align-self:center; justify-content:center; }
   .manual-dns-row .btn-link { justify-content:center; }

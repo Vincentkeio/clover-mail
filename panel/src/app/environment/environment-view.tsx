@@ -3,17 +3,20 @@
 import Link from 'next/link'
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { CertificatesSection } from '../certificates/certificates-section'
+import DomainControls from './domain-controls'
+import DnsPanel from './domain-dns-panel'
 
 type Step = { key: string; label: string; ok: boolean; detail: string; href: string; action: string; repair?: boolean }
-type Domain = { id: number; name: string; active: boolean; checkedAt: string | null; items: Array<{ label: string; ok: boolean }> }
+type Domain = { id: number; name: string; active: boolean; checkedAt: string | null; items: Array<{ label: string; ok: boolean }>; mailHostname: string; ownershipToken: string; mailboxCount: number; ruleCount: number }
 type Environment = { checkedAt: string; steps: Step[]; domains: Domain[]; panelHost: string; mailHost: string; dnsMode: string }
 
-export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
+export default function EnvironmentView({ mode, manageDomains = false, initialDomainId }: { mode: 'setup' | 'check'; manageDomains?: boolean; initialDomainId?: number }) {
   const [data, setData] = useState<Environment | null>(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
   const [checkingDomain, setCheckingDomain] = useState<number | null>(null)
   const [dnsDomainsExpanded, setDnsDomainsExpanded] = useState(false)
+  const [selectedDomainId, setSelectedDomainId] = useState<number | null>(initialDomainId ?? null)
   const [repairing, setRepairing] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -24,11 +27,17 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || '环境状态读取失败')
       setData(body)
+      setSelectedDomainId((current) => current && body.domains.some((domain: Domain) => domain.id === current)
+        ? current
+        : initialDomainId && body.domains.some((domain: Domain) => domain.id === initialDomainId)
+          ? initialDomainId
+          : body.domains[0]?.id ?? null)
       setError('')
     } catch (err) { setError(err instanceof Error ? err.message : '读取失败') }
     finally { setLoading(false) }
-  }, [])
+  }, [initialDomainId])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { if (initialDomainId) setSelectedDomainId(initialDomainId) }, [initialDomainId])
 
   async function recheck() {
     setChecking(true)
@@ -54,6 +63,11 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
     finally { setCheckingDomain(null) }
   }
 
+  function manageDomain(id: number) {
+    setSelectedDomainId(id)
+    window.setTimeout(() => document.getElementById('domain-dns')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+
   async function repairMailService() {
     setRepairing(true)
     setError('')
@@ -72,8 +86,8 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
   const steps = setup ? data?.steps.filter((step) => ['cloudflare', 'domains', 'dns', 'panel-tls', 'mail-tls', 'mail-rdns'].includes(step.key)) : data?.steps
   const allGood = Boolean(steps?.length && steps.every((step) => step.ok))
   return <main className="wrap environment-page">
-    <div className="topbar environment-heading"><div><p className="eyebrow">{setup ? 'SETUP / 03' : 'SYSTEM / CHECK'}</p><h1>{setup ? '环境配置' : '环境检查'}</h1>
-      <p className="hint">{setup ? '完成域名 DNS 检查和服务 TLS 证书设置后即可开始使用邮箱。' : '逐项检查配置与服务。红色项目会指明问题和设置入口。'}</p></div>
+    <div className="topbar environment-heading"><div><p className="eyebrow">{manageDomains ? 'SYSTEM / DNS & TLS' : setup ? 'SETUP / 03' : 'SYSTEM / CHECK'}</p><h1>{manageDomains ? 'DNS 与 TLS' : setup ? '环境配置' : '环境检查'}</h1>
+      <p className="hint">{manageDomains ? '管理邮件域名、DNS 记录与 TLS 证书；环境状态和配置入口列在下方。' : setup ? '完成域名 DNS 检查和服务 TLS 证书设置后即可开始使用邮箱。' : '逐项检查配置与服务。红色项目会指明问题和设置入口。'}</p></div>
       <button type="button" onClick={() => void recheck()} disabled={checking || loading}>{checking ? '检查中…' : '重新检查环境'}</button></div>
     {error && <div className="banner" role="alert">{error}</div>}
     {notice && <div className="msg ok" role="status">{notice}</div>}
@@ -84,7 +98,7 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
         {allGood && <Link className="primary environment-next" href="/mailboxes">创建邮箱 →</Link>}
       </section>
       <div className="environment-steps">{steps?.map((step, index) => {
-        const failedDnsDomains = step.key === 'dns' ? (data?.domains ?? []).filter((domain) => !domain.items.length || domain.items.some((item) => !item.ok)) : []
+        const failedDnsDomains = step.key === 'dns' ? (data?.domains ?? []).filter((domain) => domain.active && (!domain.items.length || domain.items.some((item) => !item.ok))) : []
         const detailId = 'environment-dns-domain-details'
         return <Fragment key={step.key}>
           <section className="environment-step">
@@ -97,7 +111,7 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
               const failedItems = domain.items.filter((item) => !item.ok)
               return <div className="environment-dns-domain" key={domain.id}>
                 <div><b className="mono">{domain.name}</b><p>{failedItems.length ? `未通过：${failedItems.map((item) => item.label).join('、')}` : '尚未完成 DNS 检查'}</p></div>
-                <Link className="btn-link" href={`/domains/${domain.id}?tab=dns`}>查看详情 →</Link>
+                <Link className="btn-link" href={`/environment?domain=${domain.id}#domain-dns`}>管理 DNS →</Link>
               </div>
             })}
           </div>}
@@ -106,13 +120,22 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
       <section className="panel environment-dns-tls" id="dns-tls">
         <div className="section-title environment-dns-tls-heading"><div><h2>DNS 与 TLS 证书</h2><p className="hint">在上方管理面板证书和统一邮件服务证书；下方检查各域名 DNS。所有域名的 MX 共用邮件主机名 {data?.mailHost || '（尚未配置）'}。</p></div>{data?.domains.length ? <span className="count">{data.domains.length} 个域名</span> : null}</div>
         <div className="environment-tls"><CertificatesSection embedded /></div>
-        <section className="environment-domains"><div className="section-title environment-domain-heading"><div><h3>各域名 DNS 状态</h3><p className="hint">每个域名使用独立的 MX、SPF、DKIM 与 DMARC 记录；MX 都指向上方的统一邮件主机。</p></div></div>
-          {data?.domains.length === 0 && <p className="empty">尚未添加邮件域名。添加域名后，可在这里检查 DNS 状态。</p>}
+        <section className="environment-domains" id={manageDomains ? 'domain-manager' : undefined}><div className="section-title environment-domain-heading"><div><h3>邮件域名 DNS</h3><p className="hint">选择域名生成、同步并检查 MX、SPF、DKIM 与 DMARC。域名增删与启用状态在<Link href="/domains">域名配置</Link>中管理。</p></div></div>
+          {data?.domains.length === 0 && <p className="empty">尚未添加邮件域名。请先到<Link href="/domains">域名配置</Link>添加域名。</p>}
           {data?.domains.map((domain) => <div className="environment-domain" key={domain.id}>
-              <div className="environment-domain-name"><b className="mono">{domain.name}</b><p className="hint">{domain.checkedAt ? `DNS 检查：${new Date(domain.checkedAt).toLocaleString('zh-CN')}` : 'DNS 尚未检查'}</p></div>
+              <div className="environment-domain-name"><div className="environment-domain-title"><b className="mono">{domain.name}</b><span className={`tag ${domain.active ? 'ok' : 'warn'}`}>{domain.active ? '启用' : '已停用'}</span></div><p className="hint">{domain.checkedAt ? `DNS 检查：${new Date(domain.checkedAt).toLocaleString('zh-CN')}` : 'DNS 尚未检查'}</p></div>
               <div className="environment-domain-checks" aria-label={`${domain.name} DNS 检查状态`}>{domain.items.length ? domain.items.map((item) => <span className={`tag ${item.ok ? 'ok' : 'err'}`} key={item.label}>{item.label}</span>) : <span className="tag warn">DNS 待检查</span>}</div>
-              <div className="environment-domain-actions"><button type="button" onClick={() => void recheckDomain(domain.id)} disabled={checkingDomain !== null || checking}>{checkingDomain === domain.id ? '检查中…' : '检查 DNS'}</button><Link className="btn-link" href={`/domains/${domain.id}?tab=dns`}>DNS 记录 →</Link></div>
+              <div className="environment-domain-actions"><span className="count">{domain.mailboxCount} 邮箱 · {domain.ruleCount} 条规则</span><button type="button" onClick={() => void recheckDomain(domain.id)} disabled={checkingDomain !== null || checking}>{checkingDomain === domain.id ? '检查中…' : '检查 DNS'}</button>{manageDomains && <DomainControls selected={selectedDomainId === domain.id} onManage={() => manageDomain(domain.id)} />}</div>
             </div>)}
+          {manageDomains && selectedDomainId !== null && (() => {
+            const domain = data?.domains.find((item) => item.id === selectedDomainId)
+            if (!domain) return null
+            return <section className="environment-domain-settings" id="domain-dns">
+              <div className="section-title"><div><h3>{domain.name} · DNS 设置</h3><p className="hint">生成、同步并检查此域名的邮件 DNS 记录。</p></div><span className="tag">{domain.active ? '启用' : '停用'}</span></div>
+              <DnsPanel domainId={domain.id} domainName={domain.name} />
+              <details className="advanced-details"><summary>手动配置参考</summary><div className="advanced-body table-scroll"><table className="grid kv"><tbody><tr><td>统一邮件主机名</td><td className="mono">{domain.mailHostname}</td></tr><tr><td>归属验证 TXT（@）</td><td className="mono">{domain.ownershipToken}</td></tr><tr><td>MX 记录</td><td className="mono">{domain.mailHostname}.（优先级 10）</td></tr><tr><td>A 记录</td><td className="mono">{domain.mailHostname} → VPS IP（在该主机名所属 DNS 区域维护）</td></tr></tbody></table></div></details>
+            </section>
+          })()}
         </section>
       </section>
       <p className="certificate-updated">{data?.checkedAt ? `证书与服务状态读取：${new Date(data.checkedAt).toLocaleString('zh-CN')}` : ''}</p>

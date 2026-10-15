@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { isIPv4 } from 'node:net'
 import { lookup, resolveMx } from 'node:dns/promises'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { domains, mailboxes } from '@/db/schema'
+import { domains, mailboxes, routingRules } from '@/db/schema'
 import { getCurrentAdmin, unauthorized } from '@/lib/auth'
 import { checkTcpPort, readCertificate } from '@/lib/certificate-probe'
 import { readCertificateHelperStatus } from '@/lib/certificate-status'
@@ -27,9 +27,11 @@ export async function GET() {
   const admin = await getCurrentAdmin()
   if (!admin) return unauthorized()
 
-  const [settings, domainRows, dnsMode, dms, mailboxRows, helperStatus] = await Promise.all([
+  const [settings, domainRows, dnsMode, dms, mailboxRows, ruleCounts, helperStatus] = await Promise.all([
     getPanelSettings(), db.select().from(domains).orderBy(asc(domains.id)), getSetting('dns_mode'), supervisorStatus(),
-    db.select().from(mailboxes), readCertificateHelperStatus().catch(() => null),
+    db.select().from(mailboxes),
+    db.select({ domainId: routingRules.domainId, n: sql<number>`count(*)` }).from(routingRules).groupBy(routingRules.domainId),
+    readCertificateHelperStatus().catch(() => null),
   ])
   const panelHost = process.env.PANEL_HOSTNAME || process.env.PANEL_FQDN || ''
   const mailHost = getMailHostname()
@@ -46,8 +48,12 @@ export async function GET() {
   const rdns = await checkMailRdns(settings.vpsIp, mailHost)
   const activeMailboxCount = mailboxRows.filter((mailbox) => mailbox.active).length
   const active = domainRows.filter((domain) => domain.active)
-  const dns = active.map((domain) => ({ domain, state: dnsState(domain.dnsStatus) }))
-  const unverified = dns.filter(({ state }) => !state.items?.length || state.items.some((item) => !item.ok))
+  const dns = domainRows.map((domain) => ({ domain, state: dnsState(domain.dnsStatus) }))
+  const activeDns = dns.filter(({ domain }) => domain.active)
+  const unverified = activeDns.filter(({ state }) => !state.items?.length || state.items.some((item) => !item.ok))
+  const mailboxCounts = new Map<number, number>()
+  for (const mailbox of mailboxRows) mailboxCounts.set(mailbox.domainId, (mailboxCounts.get(mailbox.domainId) ?? 0) + 1)
+  const ruleCountMap = new Map(ruleCounts.map((row) => [row.domainId, Number(row.n)]))
   const manual = dnsMode === 'manual'
   const steps: Step[] = [
     { key: 'cloudflare', label: 'Cloudflare 连接', ok: manual || settings.cfTokenSet,
@@ -55,10 +61,10 @@ export async function GET() {
       href: manual ? '/settings' : '/cloudflare', action: manual ? '查看高级设置' : '前往连接' },
     { key: 'domains', label: '域名配置', ok: active.length > 0,
       detail: active.length ? `已启用 ${active.length} 个邮件域名` : '还没有邮件域名，请先添加域名',
-      href: '/domains', action: '管理域名' },
+      href: '/domains', action: '添加域名' },
     { key: 'dns', label: 'DNS 记录', ok: active.length > 0 && unverified.length === 0,
       detail: !active.length ? '添加域名后即可生成与检查 DNS' : unverified.length ? `${unverified.length} 个域名尚未通过全部 DNS 检查` : `${active.length} 个域名的 DNS 检查已通过`,
-      href: active.length === 1 ? `/domains/${active[0].id}?tab=dns` : '/domains', action: '查看 DNS' },
+      href: active.length === 1 ? `/environment?domain=${active[0].id}#domain-dns` : '/environment', action: '管理 DNS' },
     { key: 'panel-tls', label: '面板 TLS', ok: Boolean(panelTls?.ok),
       detail: !panelHost ? '面板域名未配置' : panelTls?.ok ? `${panelHost} · 证书有效，剩余 ${panelTls.daysLeft} 天` : `${panelHost} · ${panelTls?.error || '证书未生效'}`,
       href: '/panel-settings#tls', action: '管理面板证书' },
@@ -84,8 +90,10 @@ export async function GET() {
       href: '/monitor/queue', action: '查看服务日志' },
   ]
   return NextResponse.json({ checkedAt: new Date().toISOString(), steps, domains: dns.map(({ domain, state }) => ({
-    id: domain.id, name: domain.name,
-    active: domain.active, items: state.items ?? [], checkedAt: state.checkedAt ?? null,
+    id: domain.id, name: domain.name, active: domain.active, ownershipToken: domain.ownershipToken,
+    mailHostname: getMailHostname(domain.mailHostname || `mail.${domain.name}`),
+    mailboxCount: mailboxCounts.get(domain.id) ?? 0, ruleCount: ruleCountMap.get(domain.id) ?? 0,
+    items: state.items ?? [], checkedAt: state.checkedAt ?? null,
   })), panelHost, mailHost, vpsIp: settings.vpsIp, dnsMode: manual ? 'manual' : 'cloudflare' }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
