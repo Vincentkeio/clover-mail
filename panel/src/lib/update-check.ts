@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { getSetting, setSetting } from './settings'
 import type { UpdateCheck } from './update-types'
+import { compareVersions, normalizeVersion } from './versions'
 import metadata from '../../package.json'
 
 const run = promisify(execFile)
@@ -26,9 +27,8 @@ async function fetchJson(url: string, init?: RequestInit) {
   return { body: await response.json() as Record<string, unknown>, headers: response.headers }
 }
 
-const cacheKey = 'system_update_check_cache_v2'
+const cacheKey = 'system_update_check_cache_v3'
 const sourceRepository = /^[\w.-]+\/[\w.-]+$/.test(process.env.CLOVER_REPO || '') ? process.env.CLOVER_REPO! : 'Vincentkeio/clover-mail'
-const sourceRef = process.env.CLOVER_REF || 'main'
 type Cache = { day: string; fingerprint: string; checkedAt: string; result: UpdateCheck | null; error: string }
 let pending: Promise<Cache> | null = null
 
@@ -102,28 +102,20 @@ async function inspectRemote(current: UpdateCheck['current']): Promise<UpdateChe
   const revision = labels?.['org.opencontainers.image.revision'] || ''
   const created = typeof imageConfig.created === 'string' ? imageConfig.created : ''
 
-  const source = await fetchJson(`https://api.github.com/repos/${sourceRepository}/commits/${encodeURIComponent(sourceRef)}`, {
-    headers: { 'User-Agent': 'Clover-Panel-Update-Check', Accept: 'application/vnd.github+json' },
-  }).catch(() => null)
-  const commit = source?.body
-  const commitSha = typeof commit?.sha === 'string' ? commit.sha : ''
-  const commitInfo = commit?.commit as Record<string, unknown> | undefined
-  const commitMeta = commitInfo?.committer as Record<string, unknown> | undefined
-  const commitMessage = typeof commitInfo?.message === 'string' ? commitInfo.message.split('\n')[0] : ''
-  const commitDate = typeof commitMeta?.date === 'string' ? commitMeta.date : ''
-
-
-  const sourceChanged = Boolean(commitSha && (current.sourceRevision || current.revision) && commitSha !== (current.sourceRevision || current.revision))
-  // Docker's classic image store exposes the config digest as .Image. The
-  // containerd image store can expose the manifest/index digest instead.
-  // Compare against each digest of this exact published image, never treat
-  // different digest representations alone as a newer release.
-  const imageMatches = [configDigest, selectedDigest, first.headers.get('docker-content-digest')].includes(current.imageId)
-  const status = !imageMatches || sourceChanged ? 'available' : current.sourceBuild ? 'source' : 'latest'
-  const message = status === 'available' ? '有新版本可更新。' : status === 'source' ? '当前使用本地构建；可手动更新至最新发布版本。' : '当前已是最新版本。'
+  let version = normalizeVersion(labels?.['org.opencontainers.image.version'])
+  // Older branch builds used "main" as the OCI version. Read the package
+  // metadata from that exact image's commit, never from a moving branch.
+  if (!version && /^[a-f0-9]{40}$/.test(revision)) {
+    const published = await fetchJson(`https://raw.githubusercontent.com/${sourceRepository}/${revision}/panel/package.json`)
+    version = normalizeVersion(published.body.version)
+  }
+  const comparison = compareVersions(version, current.version)
+  if (comparison === null) throw new Error('无法确认发布镜像的数字版本号，请稍后重试。')
+  // Commits and rebuilt image digests are diagnostics, not release numbers.
+  const status = comparison > 0 ? 'available' : current.sourceBuild ? 'source' : 'latest'
+  const message = status === 'available' ? `发现新版本 ${version}，可以更新。` : status === 'source' ? '当前使用本地构建；可手动切换到最新发布版本。' : '当前已是最新版本。'
   return { checkedAt: new Date().toISOString(), status, message, current,
-    latest: { tag: 'latest', digest: selectedDigest, createdAt: created, revision },
-    upstream: commitSha ? { sha: commitSha, shortSha: commitSha.slice(0, 7), date: commitDate, message: commitMessage, url: `https://github.com/${sourceRepository}/commit/${commitSha}` } : null }
+    latest: { tag: 'latest', digest: selectedDigest, createdAt: created, revision, version, releaseUrl: `https://github.com/${sourceRepository}/releases/tag/v${version}` } }
 }
 
 async function inspect(manual: boolean): Promise<Cache> {

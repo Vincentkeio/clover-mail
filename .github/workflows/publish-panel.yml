@@ -42,18 +42,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 读取数字版本号
+        id: version
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const version = require('./panel/package.json').version;
+          if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+            throw new Error('面板版本号必须为 major.minor.patch 格式');
+          }
+          if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v${version}`) {
+            throw new Error('发布标签必须与面板版本号一致');
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+
       - name: Docker meta（生成标签）
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
+          flavor: latest=false
           tags: |
+            type=raw,value=${{ steps.version.outputs.version }},priority=1000
             type=ref,event=branch
             type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
       - name: Buildx
         uses: docker/setup-buildx-action@v3

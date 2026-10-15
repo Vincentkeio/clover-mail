@@ -57,6 +57,10 @@ function Status({ value }: { value?: boolean }) {
   return <span className={`nav-health ${value ? 'is-ok' : 'is-error'}`} title={value ? '已完成' : '待处理'} aria-label={value ? '已完成' : '待处理'} />
 }
 
+function Chevron({ className }: { className?: string }) {
+  return <svg className={className} aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m13.5 3-7 7 7 7"/></svg>
+}
+
 export function Nav({ username }: { username: string }) {
   const pathname = usePathname()
   const update = useUpdateStatus()
@@ -93,28 +97,27 @@ export function Nav({ username }: { username: string }) {
     : pathname === href || pathname.startsWith(`${href}/`)
 
   return <>
-    <aside id="panel-navigation" className="app-sidebar" data-collapsed={collapsed}>
+    <aside id="panel-navigation" className="app-sidebar" data-collapsed={collapsed} inert={collapsed} aria-hidden={collapsed}>
       <Link href="/" className="brand-lockup"><img src="/icon.svg" alt="" className="brand-icon"/><span><b>clover</b><small>三叶草邮局</small></span></Link>
       <nav aria-label="主导航" className="sidebar-nav">{GROUPS.map((group) => <section key={group.title} className="nav-group">
         <h2 className="nav-heading">{group.title}</h2><div className="nav-items">{group.links.map((item) => {
           const active = activeFor(item.href)
           return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
-            className={`nav-link ${active ? 'is-active' : ''} ${item.href === '/cloudflare' ? 'nav-primary' : ''}`}>
-            <Icon name={item.icon}/><span>{item.label}</span>{item.href === '/updates' && hasUpdate && <span className="nav-update-badge">有更新</span>}<Status value={item.status ? health[item.status] : undefined}/>
+            className={`nav-link ${active ? 'is-active' : ''}`}>
+            <span className="nav-icon"><Icon name={item.icon}/></span><span className="nav-label">{item.label}</span>{item.href === '/updates' && hasUpdate && <span className="nav-update-badge">有更新</span>}<Status value={item.status ? health[item.status] : undefined}/>
           </Link>
         })}</div></section>)}</nav>
-      <button type="button" className="sidebar-collapse" onClick={toggleNavigation} aria-controls="panel-navigation" aria-expanded={!collapsed} disabled={!navigationReady}>收起管理导航</button>
-      <div className="sidebar-account"><span className="account-avatar">{username.slice(0, 1).toUpperCase()}</span><span className="account-name">{username}</span><NavLogout/></div>
+      <div className="sidebar-account"><span className="account-avatar" aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span><span className="account-details"><span className="account-name" title={username}>{username}</span><span className="account-role">管理员</span></span><NavLogout/></div>
     </aside>
-    {collapsed && <button type="button" className="app-nav-reveal" onClick={toggleNavigation} aria-controls="panel-navigation" aria-expanded="false">展开管理导航</button>}
-    <header id="panel-mobile-navigation" className="mobile-header" data-collapsed={collapsed}>
-      <div className="mobile-brand"><Link href="/"><img src="/icon.svg" alt="" className="brand-icon"/></Link><b>clover</b><span className="mobile-user">{username}</span><NavLogout/><button type="button" className="mobile-collapse" onClick={toggleNavigation} aria-controls="panel-mobile-navigation" aria-expanded={!collapsed} disabled={!navigationReady}>收起</button></div>
-      <nav aria-label="主导航" className="mobile-nav">{GROUPS.map((group) => {
+    <button type="button" className="nav-edge-toggle" data-collapsed={collapsed} onClick={toggleNavigation} aria-label={collapsed ? '展开管理导航' : '收起管理导航'} title={collapsed ? '展开管理导航' : '收起管理导航'} aria-controls="panel-navigation" aria-expanded={!collapsed} disabled={!navigationReady}><Chevron/>{collapsed && hasUpdate && <span className="nav-edge-update" role="img" aria-label="有新版本可更新"/>}</button>
+    <header className="mobile-header" data-collapsed={collapsed}>
+      <div className="mobile-brand"><Link href="/" aria-label="Clover 首页"><img src="/icon.svg" alt="" className="brand-icon"/></Link><b>clover</b><span className="mobile-user" title={username}>{username}</span><NavLogout/><button type="button" className="mobile-nav-toggle" onClick={toggleNavigation} aria-label={collapsed ? '展开管理导航' : '收起管理导航'} title={collapsed ? '展开管理导航' : '收起管理导航'} aria-controls="panel-mobile-navigation" aria-expanded={!collapsed} disabled={!navigationReady}><Chevron/>{collapsed && hasUpdate && <span className="nav-edge-update" role="img" aria-label="有新版本可更新"/>}</button></div>
+      <nav id="panel-mobile-navigation" aria-label="主导航" className="mobile-nav" hidden={collapsed}>{GROUPS.map((group) => {
         const groupActive = group.links.some((item) => activeFor(item.href))
-        return <details key={group.title} className="mobile-nav-group" open={groupActive}><summary>{group.title}{group.title === '高级设置' && hasUpdate && <span className="nav-update-dot" role="img" aria-label="有新版本可更新"/>}<span aria-hidden="true">⌄</span></summary>
+        return <details key={group.title} name="clover-mobile-menu" className={`mobile-nav-group ${groupActive ? 'is-active' : ''}`}><summary>{group.title}{group.title === '高级设置' && hasUpdate && <span className="nav-update-dot" role="img" aria-label="有新版本可更新"/>}<Chevron className="mobile-group-chevron"/></summary>
           <div className="mobile-nav-items">{group.links.map((item) => {
             const active = activeFor(item.href)
-            return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} className={`mobile-nav-link ${active ? 'is-active' : ''}`}>
+            return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} className={`mobile-nav-link ${active ? 'is-active' : ''}`} onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}>
               <Icon name={item.icon}/>{item.label}{item.href === '/updates' && hasUpdate && <span className="nav-update-badge">有更新</span>}<Status value={item.status ? health[item.status] : undefined}/>
             </Link>
           })}</div></details>

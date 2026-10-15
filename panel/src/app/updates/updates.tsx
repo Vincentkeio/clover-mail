@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { checkForUpdates, useUpdateStatus } from '@/lib/update-client'
+import { normalizeVersion } from '@/lib/versions'
 
 type Maintenance = { maintenanceAvailable: boolean; job: { state: string; exitCode: number | null; logs: string } }
 type Task = { ticket: string; action: 'update' | 'restart'; startedAt: number }
 const taskKey = 'clover-pending-maintenance'
 const formatDate = (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '—'
-const formatVersion = (value: string) => `v${value.replace(/\.0$/, '')}`
+const formatVersion = (value?: string) => normalizeVersion(value) || '—'
 
 export default function Updates() {
   const update = useUpdateStatus()
@@ -89,11 +90,10 @@ export default function Updates() {
   return <main className="wrap panel-settings-page">
     <div className="topbar"><div><p className="eyebrow">ADVANCED / UPDATES</p><h1>更新与重启</h1><p className="hint">每日首次进入面板时检查更新，在菜单上提示；更新与重启均需手动确认。</p></div></div>
     <section className="panel" aria-busy={update.checking}>
-      <div className="section-title"><h2>版本更新</h2><span className={'tag ' + (result?.status === 'available' ? 'warn' : result?.status === 'latest' ? 'ok' : '')}>{update.checking ? '检查中' : result?.status === 'available' ? '有新版本' : result?.status === 'latest' ? '已是最新' : '等待检查'}</span></div>
+      <div className="section-title"><h2>版本更新</h2><span className={'tag ' + (result?.status === 'available' ? 'warn' : result?.status === 'latest' ? 'ok' : '')}>{update.checking ? '检查中' : result?.status === 'available' ? '有新版本' : result?.status === 'latest' ? '已是最新' : result?.status === 'source' ? '本地构建' : '等待检查'}</span></div>
       <p className="hint">{result?.message || '正在读取当前版本和发布信息。'}</p>
-      <dl className="update-version-grid"><div><dt>当前面板版本</dt><dd>{result ? formatVersion(result.current.version) : '—'}{result?.current.revision && <small className="hint"> · {result.current.revision.slice(0, 7)}</small>}</dd></div><div><dt>最新发布镜像</dt><dd>{result?.latest.revision.slice(0, 7) || '—'}<small className="hint"> · {formatDate(result?.latest.createdAt || '')}</small></dd></div>{result?.upstream && <div><dt>仓库最新源码</dt><dd>{result.upstream.shortSha}<small className="hint"> · {formatDate(result.upstream.date)}</small></dd></div>}<div><dt>最近检查</dt><dd>{formatDate(update.checkedAt)}</dd></div></dl>
-      {result?.status === 'available' && result.upstream && result.latest.revision !== result.upstream.sha && <p className="msg warn" role="status">仓库源码已更新至 {result.upstream.shortSha}，最新发布镜像仍基于 {result.latest.revision.slice(0, 7) || '未知提交'}。更新时会同步源码并拉取可用镜像。</p>}
-      {result?.upstream && <p className="hint">更新说明：<a href={result.upstream.url} target="_blank" rel="noreferrer">{result.upstream.message || result.upstream.shortSha}</a></p>}
+      <dl className="update-version-grid"><div><dt>当前面板版本</dt><dd>{formatVersion(result?.current.version)}</dd></div><div><dt>最新发布版本</dt><dd>{formatVersion(result?.latest.version)}</dd></div><div><dt>最近检查</dt><dd>{formatDate(update.checkedAt)}</dd></div></dl>
+      {result?.latest.releaseUrl && <p className="hint"><a href={result.latest.releaseUrl} target="_blank" rel="noreferrer">查看 {formatVersion(result.latest.version)} 更新说明 ↗</a></p>}
       {update.error && <p className="msg err" role="alert">检查更新失败：{update.error} 可点击下方按钮重试。</p>}
       <div className="panel-maintenance-actions"><button type="button" disabled={update.checking || running || busy} onClick={() => void checkForUpdates(true)}>{update.checking ? '检查中…' : '检查更新'}</button><button type="button" className="primary" disabled={disabled || update.checking || !result || result.status === 'latest'} onClick={() => setConfirm('update')}>立即更新</button></div>
       <p className="hint">确认后先备份，再同步源码、脚本与 Compose 配置，拉取最新发布镜像并检查服务状态。配置和邮件数据会保留。</p>
