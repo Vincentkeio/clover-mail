@@ -4,12 +4,15 @@ import { mailboxes } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { ensureRoundcubeAuth } from '@/lib/roundcube-auth'
 import { syncRoundcubePolicy } from '@/lib/roundcube-policy'
+import { syncSrsDomains } from '@/lib/srs-sync'
 import { validRoundcubeKey } from '@/lib/roundcube-sso'
 export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   if (!validRoundcubeKey(request.headers.get('x-clover-sso-key'))) return new Response(null, { status: 403 })
   try {
     await syncRoundcubePolicy()
+    const srs = await syncSrsDomains()
+    if (!srs.ok) throw new Error(`SRS 域名同步失败：${srs.error}`)
     const [mailbox] = await db.select({ login: mailboxes.login }).from(mailboxes).where(eq(mailboxes.active, true)).limit(1)
     if (mailbox) await ensureRoundcubeAuth()
     const remove = sqlite.prepare('DELETE FROM settings WHERE key = ?')

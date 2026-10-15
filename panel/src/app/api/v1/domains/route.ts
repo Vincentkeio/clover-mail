@@ -6,6 +6,7 @@ import { getCurrentAdmin, unauthorized } from '@/lib/auth'
 import { audit } from '@/lib/audit'
 import { createDomainSchema, newOwnershipToken } from '@/lib/validators'
 import { syncDomainCreate } from '@/lib/sync'
+import { syncSrsDomains } from '@/lib/srs-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,8 +54,9 @@ export async function POST(req: Request) {
       .returning()
 
     const sync = await syncDomainCreate(name)
-    await audit(admin.username, 'domain.create', name, { id: row.id, dmsSynced: sync.ok })
-    return NextResponse.json({ ...row, dmsSynced: sync.ok }, { status: 201 })
+    const srs = await syncSrsDomains()
+    await audit(admin.username, 'domain.create', name, { id: row.id, dmsSynced: sync.ok && srs.ok })
+    return NextResponse.json({ ...row, dmsSynced: sync.ok && srs.ok }, { status: 201 })
   } catch (err) {
     if (String(err).includes('UNIQUE')) {
       return NextResponse.json({ error: '域名已存在' }, { status: 409 })
