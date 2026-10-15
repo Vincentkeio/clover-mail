@@ -15,6 +15,14 @@ panel/data/*.db-shm
 .env.bak*
 .env.local
 .env*.local
+.env.*
+!.env.example
+backups/
+deploy/acme/
+*.pem
+*.key
+*.p12
+*.pfx
 
 # 系统杂物
 .DS_Store

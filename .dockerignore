@@ -7,3 +7,11 @@ deploy/acme
 panel
 node_modules
 **/__pycache__
+work
+dist
+.workbuddy-ai
+*.log
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx

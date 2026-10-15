@@ -1,6 +1,6 @@
 {
   "name": "clover-panel",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha",
   "private": true,
   "description": "clover 三叶草邮局 — Web 控制面板（Next.js + SQLite）",
   "scripts": {
