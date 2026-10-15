@@ -86,16 +86,17 @@ export default function GlobalMailSettings({ initial, mailHost }: { initial: Glo
       <fieldset className="global-mail-content">
         <legend>内容与附件</legend>
         <label className="check"><input type="checkbox" checked={settings.allowExternalImages} onChange={(event) => toggle('allowExternalImages', event.target.checked)} />默认显示邮件中的远程图片</label>
-        <p className="hint-text">默认关闭，使用 Roundcube 原生的图片拦截和按需加载功能。</p>
+        <p className="hint-text">仅对 Roundcube 生效，默认拦截远程图片，可在阅读邮件时按需加载。Foxmail 等客户端需在各自软件中设置。</p>
         <div className="global-attachment-controls">
-          <label className="field global-attachment-limit">附件合计上限（MB）<input type="number" min={1} max={102400} step={1} value={finiteAttachmentMb} disabled={unlimited} onChange={(event) => setFiniteAttachmentMb(event.target.value)} /></label>
+          <label className="field global-attachment-limit">附件大小设置（MB）<input type="number" min={1} max={102400} step={1} value={finiteAttachmentMb} disabled={unlimited} onChange={(event) => setFiniteAttachmentMb(event.target.value)} /></label>
           <label className="check global-attachment-unlimited"><input type="checkbox" checked={unlimited} onChange={(event) => {
             const checked = event.target.checked
             setUnlimited(checked)
             setSettings((current) => ({ ...current, maxAttachmentMb: checked ? 0 : (Number(finiteAttachmentMb) || 100) }))
           }} />无限额</label>
         </div>
-        <p className="hint-text">默认 100 MB；勾选“无限额”会关闭大小上限。DMS 与 Roundcube 使用统一限制，并为完整 MIME 邮件预留编码空间。</p>
+        <p className="hint-text">默认 100 MB。Roundcube 单个附件上传按此值限制；邮件服务器为编码和正文预留空间，按完整邮件大小限制收发，对使用本服务器 SMTP 的客户端同样有效，并非精确的附件合计上限。</p>
+        <p className="hint-text">勾选“无限额”取消上述大小限制；仍受服务器资源、客户端及对方邮件服务的限制。IMAP / POP3 下载已有邮件不受此大小设置影响。</p>
       </fieldset>
       <div className="form-row"><button className="primary" disabled={busy}>{busy ? '保存并同步中…' : '保存全局邮箱设置'}</button>{message && <div role="status" className={'msg ' + (message.ok ? 'ok' : 'err')}>{message.text}</div>}</div>
     </form>

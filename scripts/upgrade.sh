@@ -244,6 +244,8 @@ for i in $(seq 1 30); do
 done
 
 if [ "${ok}" -eq 1 ]; then
+  # Refresh configuration/plugin directory mounts after archive replacement.
+  docker compose "${COMPOSE_FILES[@]}" up -d --no-deps --no-build --force-recreate roundcube
   bash scripts/configure-roundcube.sh
   # Archive updates can replace the mounted directory itself. Recreate the
   # gateway so both Git and archive upgrades use the current host files.

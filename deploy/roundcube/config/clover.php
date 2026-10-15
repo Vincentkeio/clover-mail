@@ -17,7 +17,8 @@ $config['des_key'] = hash('sha256', 'roundcube-session:' . $config['clover_sso_k
 $config['imap_conn_options'] = ['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]];
 $config['smtp_conn_options'] = $config['imap_conn_options'];
 $policy = json_decode(@file_get_contents('/var/clover-policy/policy.json'), true) ?: [];
-$config['show_images'] = !empty($policy['allowExternalImages']) ? 1 : 0;
+// Native values: 0 = ask, 1 = contacts only, 2 = always allow.
+$config['show_images'] = !empty($policy['allowExternalImages']) ? 2 : 0;
 $config['dont_override'] = ['show_images'];
 $config['max_message_size'] = (int) ($policy['maxMessageBytes'] ?? (150 * 1024 * 1024));
 $config['plugins'] = array_values(array_unique(array_merge($config['plugins'], ['clover_sso'])));
