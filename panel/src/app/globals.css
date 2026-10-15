@@ -131,6 +131,9 @@ button:not(.primary):not(.danger):not(.link),.btn-link { min-height:38px; paddin
 button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:#f5f8f5; color:var(--ink); }
 .danger { min-height:38px; padding:0 11px; border:1px solid #edcecb; border-radius:6px; background:white; color:#a53631; font-size:12px; }
 .danger:hover { background:#fff5f3; }
+.cf-token-row .field { flex:1 1 260px; }
+.cf-token-row .field input { min-height:42px; }
+.cf-token-row > button.primary,.cf-token-row > button.danger { display:inline-flex; flex:0 0 132px; width:132px; min-height:42px; align-items:center; justify-content:center; padding:0 15px; font-size:13px; font-weight:600; line-height:1.25; }
 .link { min-height:32px; padding:0 6px; border:0; background:none; color:#65746c; font-size:12px; }
 .link:hover { color:var(--green-dark); }
 .grid { width:100%; border-collapse:collapse; font-size:13px; }
