@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (origin && new URL(origin).host !== requestHost) return NextResponse.json({ error: '请求来源无效' }, { status: 403 })
 
   const mailHost = process.env.MAIL_HOSTNAME || process.env.MAIL_FQDN || ''
-  if (!mailHost) return NextResponse.json({ error: '请先到「面板设置 → 面板与邮件主机」配置邮件主机名。', href: '/panel-settings#mail-host' }, { status: 409 })
+  if (!mailHost) return NextResponse.json({ error: '请先到「面板与TLS」配置邮件主机名。', href: '/panel-settings#mail-host' }, { status: 409 })
 
   const activeMailboxes = await db.select({ id: mailboxes.id }).from(mailboxes).where(eq(mailboxes.active, true)).limit(1)
   if (!activeMailboxes.length) return NextResponse.json({ error: '尚未创建启用中的邮箱账户。请先到「邮箱账户」创建至少一个账户，Dovecot 才会启动。', href: '/mailboxes' }, { status: 409 })

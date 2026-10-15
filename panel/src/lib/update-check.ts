@@ -31,6 +31,7 @@ const cacheKey = 'system_update_check_cache_v3'
 const sourceRepository = /^[\w.-]+\/[\w.-]+$/.test(process.env.CLOVER_REPO || '') ? process.env.CLOVER_REPO! : 'Vincentkeio/clover-mail'
 type Cache = { day: string; fingerprint: string; checkedAt: string; result: UpdateCheck | null; error: string }
 let pending: Promise<Cache> | null = null
+let pendingManual: Promise<Cache> | null = null
 
 async function localVersion() {
   const imageId = await docker(['inspect', 'clover-panel', '--format', '{{.Image}}'])
@@ -136,6 +137,17 @@ async function inspect(manual: boolean): Promise<Cache> {
 }
 
 export function checkUpdates(manual = false) {
+  if (manual) {
+    if (!pendingManual) {
+      pendingManual = (async () => {
+        // Manual retries must run after an automatic lookup rather than inherit its cached result.
+        if (pending) await pending
+        return inspect(true)
+      })().finally(() => { pendingManual = null })
+    }
+    return pendingManual
+  }
+  if (pendingManual) return pendingManual
   if (!pending) pending = inspect(manual).finally(() => { pending = null })
   return pending
 }

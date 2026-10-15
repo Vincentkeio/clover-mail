@@ -76,7 +76,7 @@ export async function GET() {
       detail: rdns.detail,
       href: '/panel-settings#mail-host', action: '查看邮件主机设置' },
     { key: 'mail-listener', label: '邮件端口监听', ok: mailPortsOk,
-      detail: !mailHost ? '邮件服务器域名尚未配置。请到「面板设置 → 面板与邮件主机」填写邮件主机名。' : mailPortsOk
+      detail: !mailHost ? '邮件服务器域名尚未配置。请到「面板与TLS」填写邮件主机名。' : mailPortsOk
         ? '面板容器可连接邮件服务的 25 SMTP、465 SMTPS、587 SMTP 提交与 993 IMAPS。外部邮件能否连入 25，还取决于 VPS 服务商的入站网络规则。'
         : `面板到邮件服务的端口监听检查（25 SMTP 收信：${portStatus(mailPorts, 0)}；465 SMTPS：${portStatus(mailPorts, 1)}；587 SMTP 提交：${portStatus(mailPorts, 2)}；993 IMAPS：${portStatus(mailPorts, 3)}）${activeMailboxCount === 0 ? '。没有启用邮箱时，Dovecot 可能尚未启动' : ''}`,
       href: !mailHost ? '/panel-settings#mail-host' : activeMailboxCount === 0 ? '/mailboxes' : '/monitor/queue',
@@ -127,9 +127,9 @@ async function checkOutboundSmtp25(): Promise<{ ok: boolean; detail: string }> {
 }
 
 async function checkMailRdns(vpsIp: string, mailHost: string): Promise<{ ok: boolean; detail: string }> {
-  if (!vpsIp) return { ok: false, detail: '尚未设置 VPS 公网 IP。请先到「面板设置 → 面板与邮件主机」配置服务器 IP。' }
-  if (!isIPv4(vpsIp)) return { ok: false, detail: `当前服务器 IP「${vpsIp}」不是有效的 IPv4 地址，暂时无法检查 PTR。请在面板设置中修正 VPS 公网 IP。` }
-  if (!mailHost) return { ok: false, detail: '尚未配置邮件主机名。请先到「面板设置 → 面板与邮件主机」设置主机名。' }
+  if (!vpsIp) return { ok: false, detail: '尚未设置 VPS 公网 IP。请先到「面板与TLS」配置服务器 IP。' }
+  if (!isIPv4(vpsIp)) return { ok: false, detail: `当前服务器 IP「${vpsIp}」不是有效的 IPv4 地址，暂时无法检查 PTR。请在「面板与TLS」中修正 VPS 公网 IP。` }
+  if (!mailHost) return { ok: false, detail: '尚未配置邮件主机名。请先到「面板与TLS」设置主机名。' }
   try {
     const ptrs = await resolvePtr(vpsIp)
     if (!ptrs.length) return { ok: false, detail: `IP ${vpsIp} 尚无 PTR（rDNS）记录。请联系 VPS 服务商，将此 IP 的反向解析设置为 ${mailHost}。` }
@@ -149,7 +149,7 @@ export async function POST() {
   const admin = await getCurrentAdmin()
   if (!admin) return unauthorized()
   const [rows, vpsIp] = await Promise.all([db.select().from(domains), getVpsIp()])
-  if (!vpsIp) return NextResponse.json({ error: '请先在面板设置填写 VPS 公网 IP' }, { status: 400 })
+  if (!vpsIp) return NextResponse.json({ error: '请先在「面板与TLS」填写 VPS 公网 IP' }, { status: 400 })
   const results = await Promise.all(rows.filter((domain) => domain.active).map(async (domain) => {
     const dkimPublicKey = await resolveDkimPublicKey(domain.id, domain.name)
     const items = await runChecklist({ domain: domain.name, mailHostname: getMailHostname(domain.mailHostname || `mail.${domain.name}`),

@@ -64,7 +64,7 @@ export default function GlobalMailSettings({ initial, mailHost }: { initial: Glo
       <fieldset className="mail-client-config">
         <legend>邮件客户端配置</legend>
         <p className="hint-text">在 Foxmail、Thunderbird、Apple Mail 等客户端添加邮箱时，选择“手动配置”。推荐使用 IMAP，多台设备可同步邮件；也可选择 POP3 下载邮件。</p>
-        {mailHost ? <p className="mail-client-host">收件服务器和发件服务器均填写：<code>{mailHost}</code></p> : <p className="mail-client-host">尚未配置邮件主机名，请先在“环境配置 → DNS 与 TLS”中设置。</p>}
+        {mailHost ? <p className="mail-client-host">收件服务器和发件服务器均填写：<code>{mailHost}</code></p> : <p className="mail-client-host">尚未配置邮件主机名，请先在“面板与TLS”中设置。</p>}
         <div className="table-scroll" tabIndex={0} role="region" aria-label="邮件客户端服务器端口和加密方式">
           <table className="grid">
             <thead><tr><th scope="col">用途</th><th scope="col">协议</th><th scope="col">端口</th><th scope="col">加密方式</th></tr></thead>

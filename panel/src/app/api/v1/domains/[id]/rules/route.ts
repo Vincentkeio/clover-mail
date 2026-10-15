@@ -76,12 +76,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const sync = await syncAliasAdd(aliasAddr!, targets)
     dmsSynced = sync.ok
   }
-  // prefix 规则走 pcre 正则别名表（DMS 无原生前缀支持）
-  let prefixSynced: boolean | null = null
-  if (matchType === 'prefix') {
-    prefixSynced = (await syncPrefixRules()).ok
-  }
+  // 合并所有重叠规则，确保 exact、prefix 与 catch-all 同时投递。
+  const routingSynced = (await syncPrefixRules()).ok
+  const prefixSynced = matchType === 'prefix' ? routingSynced : null
 
-  await audit(admin.username, 'rule.create', `${domain.name}:${key}`, { dmsSupported, dmsSynced, prefixSynced })
-  return NextResponse.json({ ...row, dmsSupported, dmsSynced, prefixSynced }, { status: 201 })
+  await audit(admin.username, 'rule.create', `${domain.name}:${key}`, { dmsSupported, dmsSynced, prefixSynced, routingSynced })
+  return NextResponse.json({ ...row, dmsSupported, dmsSynced, prefixSynced, routingSynced }, { status: 201 })
 }

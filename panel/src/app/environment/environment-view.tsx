@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { Fragment, useCallback, useEffect, useState } from 'react'
-import { CertificatesSection } from '../certificates/certificates-section'
 import DomainControls from './domain-controls'
 import DnsPanel from './domain-dns-panel'
 
@@ -86,18 +85,18 @@ export default function EnvironmentView({ mode, manageDomains = false, initialDo
   const steps = setup ? data?.steps.filter((step) => ['cloudflare', 'domains', 'dns', 'panel-tls', 'mail-tls', 'mail-rdns'].includes(step.key)) : data?.steps
   const allGood = Boolean(steps?.length && steps.every((step) => step.ok))
   return <main className="wrap environment-page">
-    <div className="topbar environment-heading"><div><p className="eyebrow">{manageDomains ? 'SYSTEM / DNS & TLS' : setup ? 'SETUP / 03' : 'SYSTEM / CHECK'}</p><h1>{manageDomains ? 'DNS 与 TLS' : setup ? '环境配置' : '环境检查'}</h1>
-      <p className="hint">{manageDomains ? '管理邮件域名、DNS 记录与 TLS 证书；环境状态和配置入口列在下方。' : setup ? '完成域名 DNS 检查和服务 TLS 证书设置后即可开始使用邮箱。' : '逐项检查配置与服务。红色项目会指明问题和设置入口。'}</p></div>
-      <button type="button" onClick={() => void recheck()} disabled={checking || loading}>{checking ? '检查中…' : '重新检查环境'}</button></div>
+    <div className="topbar environment-heading"><div><p className="eyebrow">{manageDomains ? 'SYSTEM / DNS' : setup ? 'SETUP / 03' : 'SYSTEM / CHECK'}</p><h1>{manageDomains ? 'DNS 设置' : setup ? '环境配置' : '环境检查'}</h1>
+      <p className="hint">{manageDomains ? '查看各邮件域名的 DNS 状态，并生成、同步和检查邮件 DNS 记录。' : setup ? '完成域名 DNS 检查和服务 TLS 证书设置后即可开始使用邮箱。' : '逐项检查配置与服务。红色项目会指明问题和设置入口。'}</p></div>
+      {!manageDomains && <button type="button" onClick={() => void recheck()} disabled={checking || loading}>{checking ? '检查中…' : '重新检查环境'}</button>}</div>
     {error && <div className="banner" role="alert">{error}</div>}
     {notice && <div className="msg ok" role="status">{notice}</div>}
     {loading && !data ? <p className="hint">正在读取配置与证书状态…</p> : <>
-      <section className={`environment-summary ${allGood ? 'is-ok' : 'is-error'}`}>
+      {!manageDomains && <section className={`environment-summary ${allGood ? 'is-ok' : 'is-error'}`}>
         <span className="environment-summary-symbol" aria-hidden="true">{allGood ? '✓' : '!'}</span>
         <div><strong>{allGood ? (setup ? '环境配置已完成' : '环境检查全部通过') : `${steps?.filter((step) => !step.ok).length ?? 0} 项需要处理`}</strong><p>{allGood ? (setup ? '域名、DNS、TLS 和邮件服务器 rDNS 已就绪，可以开始创建邮箱账户。' : '域名、DNS、证书、邮件服务器 rDNS、邮件端口监听与 SMTP 25 出站均正常。') : '按下方提示依次完成配置，再重新检查。'}</p></div>
         {allGood && <Link className="primary environment-next" href="/mailboxes">创建邮箱 →</Link>}
-      </section>
-      <div className="environment-steps">{steps?.map((step, index) => {
+      </section>}
+      {!manageDomains && <div className="environment-steps">{steps?.map((step, index) => {
         const failedDnsDomains = step.key === 'dns' ? (data?.domains ?? []).filter((domain) => domain.active && (!domain.items.length || domain.items.some((item) => !item.ok))) : []
         const detailId = 'environment-dns-domain-details'
         return <Fragment key={step.key}>
@@ -116,11 +115,10 @@ export default function EnvironmentView({ mode, manageDomains = false, initialDo
             })}
           </div>}
         </Fragment>
-      })}</div>
+      })}</div>}
       <section className="panel environment-dns-tls" id="dns-tls">
-        <div className="section-title environment-dns-tls-heading"><div><h2>DNS 与 TLS 证书</h2><p className="hint">在上方管理面板证书和统一邮件服务证书；下方检查各域名 DNS。所有域名的 MX 共用邮件主机名 {data?.mailHost || '（尚未配置）'}。</p></div>{data?.domains.length ? <span className="count">{data.domains.length} 个域名</span> : null}</div>
-        <div className="environment-tls"><CertificatesSection embedded /></div>
-        <section className="environment-domains" id={manageDomains ? 'domain-manager' : undefined}><div className="section-title environment-domain-heading"><div><h3>邮件域名 DNS</h3><p className="hint">选择域名生成、同步并检查 MX、SPF、DKIM 与 DMARC。域名增删与启用状态在<Link href="/domains">域名配置</Link>中管理。</p></div></div>
+        <div className="section-title environment-dns-tls-heading"><div><h2>邮件域名 DNS</h2><p className="hint">选择域名生成、同步并检查 MX、SPF、DKIM 与 DMARC。所有域名的 MX 共用邮件主机名 {data?.mailHost || '（尚未配置）'}；主机名及 TLS 证书请到“面板与TLS”管理。</p></div>{data?.domains.length ? <span className="count">{data.domains.length} 个域名</span> : null}</div>
+        <section className="environment-domains" id={manageDomains ? 'domain-manager' : undefined}><div className="section-title environment-domain-heading"><div><h3>已配置域名</h3><p className="hint">查看检查结果并选择域名生成、同步和管理记录。域名增删与启用状态在<Link href="/domains">域名配置</Link>中管理。</p></div></div>
           {data?.domains.length === 0 && <p className="empty">尚未添加邮件域名。请先到<Link href="/domains">域名配置</Link>添加域名。</p>}
           {data?.domains.map((domain) => <div className="environment-domain" key={domain.id}>
               <div className="environment-domain-name"><div className="environment-domain-title"><b className="mono">{domain.name}</b><span className={`tag ${domain.active ? 'ok' : 'warn'}`}>{domain.active ? '启用' : '已停用'}</span></div><p className="hint">{domain.checkedAt ? `DNS 检查：${new Date(domain.checkedAt).toLocaleString('zh-CN')}` : 'DNS 尚未检查'}</p></div>
@@ -138,7 +136,6 @@ export default function EnvironmentView({ mode, manageDomains = false, initialDo
           })()}
         </section>
       </section>
-      <p className="certificate-updated">{data?.checkedAt ? `证书与服务状态读取：${new Date(data.checkedAt).toLocaleString('zh-CN')}` : ''}</p>
     </>}
   </main>
 }

@@ -91,11 +91,11 @@ export default function Updates() {
     <div className="topbar"><div><p className="eyebrow">ADVANCED / UPDATES</p><h1>更新与重启</h1><p className="hint">每日首次进入面板时检查更新，在菜单上提示；更新与重启均需手动确认。</p></div></div>
     <section className="panel" aria-busy={update.checking}>
       <div className="section-title"><h2>版本更新</h2><span className={'tag ' + (result?.status === 'available' ? 'warn' : result?.status === 'latest' ? 'ok' : '')}>{update.checking ? '检查中' : result?.status === 'available' ? '有新版本' : result?.status === 'latest' ? '已是最新' : result?.status === 'source' ? '本地构建' : '等待检查'}</span></div>
-      <p className="hint">{result?.message || '正在读取当前版本和发布信息。'}</p>
+      <p className="hint">{update.manualChecking ? '正在重新连接更新源并比对版本…' : update.checking ? '正在自动检查更新；也可以点下方按钮立即重新检查。' : result?.message || '正在读取当前版本和发布信息。'}</p>
       <dl className="update-version-grid"><div><dt>当前面板版本</dt><dd>{formatVersion(result?.current.version)}</dd></div><div><dt>最新发布版本</dt><dd>{formatVersion(result?.latest.version)}</dd></div><div><dt>最近检查</dt><dd>{formatDate(update.checkedAt)}</dd></div></dl>
       {result?.latest.releaseUrl && <p className="hint"><a href={result.latest.releaseUrl} target="_blank" rel="noreferrer">查看 {formatVersion(result.latest.version)} 更新说明 ↗</a></p>}
       {update.error && <p className="msg err" role="alert">检查更新失败：{update.error} 可点击下方按钮重试。</p>}
-      <div className="panel-maintenance-actions"><button type="button" disabled={update.checking || running || busy} onClick={() => void checkForUpdates(true)}>{update.checking ? '检查中…' : '检查更新'}</button><button type="button" className="primary" disabled={disabled || update.checking || !result || result.status === 'latest'} onClick={() => setConfirm('update')}>立即更新</button></div>
+      <div className="panel-maintenance-actions"><button type="button" disabled={update.manualChecking || running || busy} onClick={() => void checkForUpdates(true)}>{update.manualChecking ? '检查中…' : update.checking ? '立即重新检查' : '检查更新'}</button><button type="button" className="primary" disabled={disabled || update.checking || !result || result.status === 'latest'} onClick={() => setConfirm('update')}>立即更新</button></div>
       <p className="hint">确认后先备份，再同步源码、脚本与 Compose 配置，拉取最新发布镜像并检查服务状态。配置和邮件数据会保留。</p>
       {result?.current.sourceBuild && <p className="hint">当前为本地构建；确认更新后将切换到最新发布镜像。</p>}
     </section>

@@ -27,9 +27,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (parsed.data.targets) patch.targets = JSON.stringify(parsed.data.targets)
 
   const [row] = await db.update(routingRules).set(patch).where(eq(routingRules.id, id)).returning()
-  const prefixSynced = rule.matchType === 'prefix' ? (await syncPrefixRules()).ok : null
-  await audit(admin.username, 'rule.update', String(id), { ...parsed.data, prefixSynced })
-  return NextResponse.json({ ...row, prefixSynced })
+  const routingSynced = (await syncPrefixRules()).ok
+  const prefixSynced = rule.matchType === 'prefix' ? routingSynced : null
+  await audit(admin.username, 'rule.update', String(id), { ...parsed.data, prefixSynced, routingSynced })
+  return NextResponse.json({ ...row, prefixSynced, routingSynced })
 }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -47,7 +48,8 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
 
   await db.delete(routingRules).where(eq(routingRules.id, id))
   // prefix 规则删除后刷新正则表（删掉最后一条时也要写空表）
-  const prefixSynced = rule.matchType === 'prefix' ? (await syncPrefixRules()).ok : null
-  await audit(admin.username, 'rule.delete', String(id), { dmsSynced: sync?.ok ?? null, prefixSynced })
-  return NextResponse.json({ ok: true, prefixSynced })
+  const routingSynced = (await syncPrefixRules()).ok
+  const prefixSynced = rule.matchType === 'prefix' ? routingSynced : null
+  await audit(admin.username, 'rule.delete', String(id), { dmsSynced: sync?.ok ?? null, prefixSynced, routingSynced })
+  return NextResponse.json({ ok: true, prefixSynced, routingSynced })
 }

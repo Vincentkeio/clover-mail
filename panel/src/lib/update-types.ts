@@ -6,4 +6,4 @@ export type UpdateCheck = {
   latest: { tag: string; digest: string; createdAt: string; revision: string; version: string; releaseUrl: string }
 }
 
-export type UpdateState = { result: UpdateCheck | null; error: string; checkedAt: string; checking: boolean }
+export type UpdateState = { result: UpdateCheck | null; error: string; checkedAt: string; checking: boolean; manualChecking: boolean }

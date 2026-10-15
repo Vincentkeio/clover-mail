@@ -11,8 +11,8 @@ const GROUPS: Array<{ title: string; links: NavItem[] }> = [
   { title: '环境配置', links: [
     { href: '/cloudflare', label: 'Cloudflare 连接', icon: 'cloud', status: 'cloudflare' },
     { href: '/domains', label: '域名配置', icon: 'globe', status: 'domains' },
-    { href: '/panel-settings', label: '面板与主机', icon: 'sliders' },
-    { href: '/environment', label: 'DNS 与 TLS', icon: 'certificate', status: 'setup' },
+    { href: '/environment', label: 'DNS 设置', icon: 'globe', status: 'dns' },
+    { href: '/panel-settings', label: '面板与TLS', icon: 'certificate', status: 'tls' },
   ] },
   { title: '检查环境', links: [
     { href: '/environment-check', label: '环境检查', icon: 'check', status: 'overall' },
@@ -84,7 +84,7 @@ export function Nav({ username }: { username: string }) {
       .then((data) => {
         if (!live || !data?.steps) return
         const next: Record<string, boolean> = Object.fromEntries(data.steps.map((step: { key: string; ok: boolean }) => [step.key, step.ok]))
-        next.setup = Boolean(next.dns && next['panel-tls'] && next['mail-tls'])
+        next.tls = Boolean(next['panel-tls'] && next['mail-tls'])
         next.overall = data.steps.every((step: { ok: boolean }) => step.ok)
         setHealth(next)
       }).catch(() => undefined)
