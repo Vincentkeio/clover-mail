@@ -298,6 +298,17 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .environment-step-body p { margin:3px 0 0; color:#69776d; font-size:12px; }
 .environment-step-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
 .environment-step-actions .btn-link { display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; }
+.environment-dns-toggle { display:inline-flex; min-height:34px; align-items:center; gap:5px; padding:0 9px; border:1px solid #dce8df; border-radius:6px; background:#fff; color:#17694e; font-size:12px; font-weight:600; cursor:pointer; }
+.environment-dns-toggle:hover { border-color:#a9cbb4; background:#f4f8f5; }
+.environment-dns-toggle:focus-visible { outline:2px solid var(--green); outline-offset:2px; }
+.environment-dns-details { margin:0 18px 12px 68px; padding:11px 13px; border:1px solid #e7ece8; border-radius:6px; background:#f8faf8; }
+.environment-dns-details[hidden] { display:none; }
+.environment-dns-details-heading { margin-bottom:3px; color:#59695f; font-size:11px; font-weight:650; }
+.environment-dns-domain { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid #e9eeea; }
+.environment-dns-domain:first-of-type { border-top:0; }
+.environment-dns-domain b { font-size:12px; }
+.environment-dns-domain p { margin:3px 0 0; color:#a34c38; font-size:11px; }
+.environment-dns-domain .btn-link { display:inline-flex; flex:0 0 auto; align-items:center; justify-content:center; white-space:nowrap; }
 .environment-dns-tls { margin-top:16px; }
 .environment-dns-tls-heading { align-items:flex-start; margin-bottom:15px; }
 .environment-dns-tls-heading h2,.environment-domain-heading h3 { margin:0; font-size:16px; }
@@ -431,6 +442,8 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
   .environment-summary { flex-wrap:wrap; }
   .environment-next { width:100%; justify-content:center; margin-left:0; }
   .environment-step-actions { grid-column:2; justify-content:flex-start; }
+  .environment-dns-details { margin:0 12px 12px 47px; }
+  .environment-dns-domain { align-items:flex-start; flex-direction:column; gap:7px; }
   .environment-domain { grid-template-columns:1fr auto; }
   .environment-domain-checks { grid-column:1/-1; grid-row:2; }
   .environment-domain-actions { grid-column:1/-1; justify-content:flex-start; flex-wrap:wrap; }

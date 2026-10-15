@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { CertificatesSection } from '../certificates/certificates-section'
 
 type Step = { key: string; label: string; ok: boolean; detail: string; href: string; action: string; repair?: boolean }
@@ -13,6 +13,7 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
   const [checkingDomain, setCheckingDomain] = useState<number | null>(null)
+  const [dnsDomainsExpanded, setDnsDomainsExpanded] = useState(false)
   const [repairing, setRepairing] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -82,9 +83,26 @@ export default function EnvironmentView({ mode }: { mode: 'setup' | 'check' }) {
         <div><strong>{allGood ? (setup ? '环境配置已完成' : '环境检查全部通过') : `${steps?.filter((step) => !step.ok).length ?? 0} 项需要处理`}</strong><p>{allGood ? (setup ? '域名、DNS、TLS 和邮件服务器 rDNS 已就绪，可以开始创建邮箱账户。' : '域名、DNS、证书、邮件服务器 rDNS、邮件端口监听与 SMTP 25 出站均正常。') : '按下方提示依次完成配置，再重新检查。'}</p></div>
         {allGood && <Link className="primary environment-next" href="/mailboxes">创建邮箱 →</Link>}
       </section>
-      <div className="environment-steps">{steps?.map((step, index) => <section key={step.key} className="environment-step">
-        <div className="environment-step-index">{String(index + 1).padStart(2, '0')}</div><div className="environment-step-body"><div className="environment-step-title"><h2>{step.label}</h2><span className={`tag ${step.ok ? 'ok' : 'err'}`}>{step.ok ? '正常' : '待处理'}</span></div>
-          <p>{step.detail}</p></div><div className="environment-step-actions">{step.repair && <button type="button" className="primary" disabled={repairing} onClick={() => void repairMailService()}>{repairing ? '正在修复…' : '修复邮件服务'}</button>}<Link className="btn-link" href={step.href}>{step.action} →</Link></div></section>)}</div>
+      <div className="environment-steps">{steps?.map((step, index) => {
+        const failedDnsDomains = step.key === 'dns' ? (data?.domains ?? []).filter((domain) => !domain.items.length || domain.items.some((item) => !item.ok)) : []
+        const detailId = 'environment-dns-domain-details'
+        return <Fragment key={step.key}>
+          <section className="environment-step">
+            <div className="environment-step-index">{String(index + 1).padStart(2, '0')}</div><div className="environment-step-body"><div className="environment-step-title"><h2>{step.label}</h2><span className={`tag ${step.ok ? 'ok' : 'err'}`}>{step.ok ? '正常' : '待处理'}</span></div>
+              <p>{step.detail}</p></div><div className="environment-step-actions">{failedDnsDomains.length > 0 && <button type="button" className="environment-dns-toggle" aria-expanded={dnsDomainsExpanded} aria-controls={detailId} onClick={() => setDnsDomainsExpanded((expanded) => !expanded)}>{dnsDomainsExpanded ? '收起域名' : '查看域名'} <span aria-hidden="true">{dnsDomainsExpanded ? '⌃' : '⌄'}</span></button>}{step.repair && <button type="button" className="primary" disabled={repairing} onClick={() => void repairMailService()}>{repairing ? '正在修复…' : '修复邮件服务'}</button>}<Link className="btn-link" href={step.href}>{step.action} →</Link></div>
+          </section>
+          {failedDnsDomains.length > 0 && <div className="environment-dns-details" id={detailId} hidden={!dnsDomainsExpanded}>
+            <div className="environment-dns-details-heading">未通过 DNS 检查的域名</div>
+            {failedDnsDomains.map((domain) => {
+              const failedItems = domain.items.filter((item) => !item.ok)
+              return <div className="environment-dns-domain" key={domain.id}>
+                <div><b className="mono">{domain.name}</b><p>{failedItems.length ? `未通过：${failedItems.map((item) => item.label).join('、')}` : '尚未完成 DNS 检查'}</p></div>
+                <Link className="btn-link" href={`/domains/${domain.id}?tab=dns`}>查看详情 →</Link>
+              </div>
+            })}
+          </div>}
+        </Fragment>
+      })}</div>
       <section className="panel environment-dns-tls" id="dns-tls">
         <div className="section-title environment-dns-tls-heading"><div><h2>DNS 与 TLS 证书</h2><p className="hint">在上方管理面板证书和统一邮件服务证书；下方检查各域名 DNS。所有域名的 MX 共用邮件主机名 {data?.mailHost || '（尚未配置）'}。</p></div>{data?.domains.length ? <span className="count">{data.domains.length} 个域名</span> : null}</div>
         <div className="environment-tls"><CertificatesSection embedded /></div>
