@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { dnsRecords } from '@/db/schema'
-import { DMS_CONFIG_DIR, DmsResult, dkim as dmsDkim, readContainerFile } from './dms'
+import { DMS_CONFIG_DIR, DmsResult, dkim as dmsDkim, readContainerFile, syncDkimRuntime } from './dms'
 
 /**
  * DMS 生成的 mail.txt 是 **DNS zone 片段**，不是裸值，例如：
@@ -34,13 +34,19 @@ export async function resolveDkimPublicKey(domainId: number, domainName: string)
   const fromDms = await dmsDkim.publicKey(domainName)
   if (fromDms.ok) {
     const parsed = parseDkimDnsValue(fromDms.stdout)
-    if (parsed) return parsed
+    if (parsed) {
+      await applyDkimRuntimeConfig()
+      return parsed
+    }
   }
 
   const legacy = await readContainerFile(`${DMS_CONFIG_DIR}/opendkim/keys/${domainName}/mail.txt`)
   if (legacy.ok) {
     const parsed = parseDkimDnsValue(legacy.stdout)
-    if (parsed) return parsed
+    if (parsed) {
+      await applyDkimRuntimeConfig()
+      return parsed
+    }
   }
 
   // DMS 16：DKIM 密钥不是自动生成的，需要显式跑 `setup config dkim`
@@ -63,7 +69,15 @@ export async function ensureDkim(domainName: string): Promise<string | null> {
   // 刚导入、还没建邮箱的域必须用 `domain <域>` 才会生成（官方支持）。
   const gen = await dmsDkim.regenerate(domainName)
   if (!(gen as DmsResult).ok) return null
+  await applyDkimRuntimeConfig()
   const again = await dmsDkim.publicKey(domainName)
   if (!again.ok) return null
   return parseDkimDnsValue(again.stdout)
+}
+
+async function applyDkimRuntimeConfig(): Promise<void> {
+  const result = await syncDkimRuntime()
+  if (!result.ok) {
+    throw new Error(`DKIM 配置已生成，但同步到 OpenDKIM 运行配置失败：${result.error}${result.stderr ? ` (${result.stderr})` : ''}`)
+  }
 }

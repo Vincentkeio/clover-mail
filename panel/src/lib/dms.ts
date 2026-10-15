@@ -49,6 +49,56 @@ export function readContainerFile(absPath: string): Promise<DmsResult> {
   return dockerExec(['exec', config.dmsContainer, 'cat', absPath], 15_000)
 }
 
+let dkimRuntimeSync: Promise<DmsResult> | null = null
+
+/**
+ * DMS `setup config dkim` writes durable files under /tmp/docker-mailserver,
+ * while OpenDKIM reads its startup copy under /etc/opendkim. Keep the runtime
+ * copy current without restarting the whole mail server. Concurrent panel
+ * requests share one sync/reload operation.
+ */
+export function syncDkimRuntime(): Promise<DmsResult> {
+  if (!dkimRuntimeSync) {
+    const script = `
+set -eu
+src=/tmp/docker-mailserver/opendkim
+dst=/etc/opendkim
+[ -s "$src/SigningTable" ] && [ -s "$src/KeyTable" ] && [ -d "$src/keys" ] || exit 0
+
+changed=0
+for name in SigningTable KeyTable TrustedHosts; do
+  if [ -f "$src/$name" ] && { [ ! -f "$dst/$name" ] || ! cmp -s "$src/$name" "$dst/$name"; }; then
+    changed=1
+  fi
+done
+for source_file in $(find "$src/keys" -type f); do
+  relative_path=\${source_file#"$src/"}
+  if [ ! -f "$dst/$relative_path" ] || ! cmp -s "$source_file" "$dst/$relative_path"; then
+    changed=1
+    break
+  fi
+done
+status=$(supervisorctl status opendkim 2>/dev/null || true)
+if ! printf '%s' "$status" | grep -Eq '^opendkim[[:space:]]+RUNNING[[:space:]]'; then changed=1; fi
+[ "$changed" -eq 1 ] || { echo unchanged; exit 0; }
+
+# Match DMS's own startup setup: copy durable config, set key ownership and
+# permissions, then restart only the DKIM signer.
+cp -a "$src/." "$dst/"
+chown -R opendkim:opendkim "$dst"
+chmod -R 0700 "$dst/keys"
+if printf '%s' "$status" | grep -Eq '^opendkim[[:space:]]+RUNNING[[:space:]]'; then
+  supervisorctl restart opendkim
+else
+  supervisorctl start opendkim
+fi
+`
+    dkimRuntimeSync = dockerExec(['exec', config.dmsContainer, 'sh', '-ec', script], 20_000)
+      .finally(() => { dkimRuntimeSync = null })
+  }
+  return dkimRuntimeSync
+}
+
 /** 服务状态探活：supervisord 管理的各进程 RUNNING/STOPPED 一览 */
 export async function supervisorStatus(): Promise<DmsResult> {
   try {
