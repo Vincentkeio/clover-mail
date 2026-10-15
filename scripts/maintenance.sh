@@ -151,6 +151,13 @@ case "$action" in
 {$CLOVER_CADDY_SCHEME}://{$PANEL_HOSTNAME} {
   {$CLOVER_TLS_DIRECTIVE}
   encode zstd gzip
+  handle /api/internal/roundcube/* {
+    respond 404
+  }
+  handle /webmail/* {
+    uri strip_prefix /webmail
+    reverse_proxy roundcube:80
+  }
   handle /rspamd* {
     reverse_proxy mail:11334
   }

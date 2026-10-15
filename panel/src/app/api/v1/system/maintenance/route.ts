@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentAdmin, unauthorized } from '@/lib/auth'
 import { getVpsIp } from '@/lib/settings'
 import { audit } from '@/lib/audit'
+import { issueMaintenanceTicket } from '@/lib/maintenance-ticket'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -94,6 +95,8 @@ export async function POST(req: Request) {
       '-v', `${project}:${project}`, '-w', project,
       'docker:cli', 'sh', './scripts/maintenance.sh', ...args], 30_000)
     await audit(admin.username, `system.${action}`, action === 'configure' ? `${args[1]},${args[2]}` : undefined, { job: id.slice(0, 12) })
-    return NextResponse.json({ ok: true, job: id.slice(0, 12), message: action === 'configure' ? `配置开始应用。完成后请打开 https://${args[1]}/` : '维护任务已启动。' }, { status: 202 })
+    const ticket = action === 'configure' ? issueMaintenanceTicket({ job: id, panelHost: args[1], mailHost: args[2], origin: origin || new URL(req.url).origin }) : undefined
+    return NextResponse.json({ ok: true, job: id.slice(0, 12), ticket, panelHost: action === 'configure' ? args[1] : undefined,
+      message: action === 'configure' ? '正在应用域名配置，完成后将自动重新加载页面。' : '维护任务已启动。' }, { status: 202 })
   } catch (err) { return NextResponse.json({ error: err instanceof Error ? err.message : '无法启动维护任务' }, { status: 502 }) }
 }

@@ -8,6 +8,7 @@ const PUBLIC_ASSETS = new Set(['/clover-mark.svg', '/icon.svg'])
 /** 公开 API（compose healthcheck / 认证 / 对账双认证入口 / 演示种子） */
 const PUBLIC_API = [
   '/api/health',
+  '/api/v1/system/maintenance/status', // Read-only status, signed task ticket checked in route.
   '/api/auth/login',
   '/api/auth/logout',
   '/api/v1/system/reconcile', // 路由内自行做 session-or-bearer 双认证
