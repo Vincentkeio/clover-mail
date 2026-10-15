@@ -281,7 +281,7 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records
 | DMS 无 DB 导致账号同步故障 | 只用官方 CLI、每日对账告警 |
 | DMS 升级破坏兼容 | 锁版本 + 升级前 compat 检查流程 |
 | 面板单点故障 | compose restart 策略、SQLite 每日备份、一键恢复文档 |
-| 许可证传染 | DMS/MIT 无传染；面板自身避免引入 AGPL 依赖 |
+| 许可证分层 | Clover 主体采用 AGPL-3.0-or-later；Roundcube、docker-mailserver 等第三方组件遵循各自许可证 |
 | 邮件 at-rest 加密 | MVP 卷加密指引；P2 做 per-mailbox 加密 |
 | 合规 | 建议海外 VPS；文档明示各地政策差异，用户自担 |
 
@@ -289,7 +289,7 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records
 
 1. 面板技术栈：**Next.js 单体**（推荐，一个容器搞定）/ Go 后端 + Nuxt 前后端分离
 2. 数据库：**SQLite**（推荐单机轻量）/ PostgreSQL
-3. 许可证：MIT（推荐）/ Apache-2.0
+3. 许可证：AGPL-3.0-or-later（已采用）
 4. MVP 账号模型：单管理员（推荐，PM 是自助注册但自托管先单管理员）/ 直接做多用户注册
 5. WebMail：官方 Roundcube 原生客户端
 6. 是否有现成 VPS + 域名可以尽早开始 M0 验证（25 端口 + 送达率是项目生死线，越早真机验证越好）

@@ -2,6 +2,7 @@
   "name": "clover-panel",
   "version": "1.0.1",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "description": "clover 三叶草邮局 — Web 控制面板（Next.js + SQLite）",
   "scripts": {
     "dev": "next dev",

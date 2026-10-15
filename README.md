@@ -97,4 +97,4 @@ clover admin list   # 查看管理员
 
 ## 许可证
 
-Clover 采用 [MIT License](LICENSE)。Roundcube、docker-mailserver 等组件遵循各自的开源许可证。
+Clover 采用 [GNU Affero General Public License v3.0 或更高版本（AGPL-3.0-or-later）](LICENSE)，版权与项目来源声明见 [NOTICE](NOTICE)。修改并分发 Clover，或通过网络向用户提供受 AGPL 覆盖的修改版时，须依照 AGPL 提供对应源代码并保留原有声明及来源署名。修改版须明确标注为修改版，不得冒充官方版本。Clover 名称和标识不授予商标使用权。Roundcube、docker-mailserver 等第三方组件遵循各自的开源许可证。
