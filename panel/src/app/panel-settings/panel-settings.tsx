@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { CertificatesSection } from '../certificates/certificates-section'
+import MailArchiveManager from './mail-archive-manager'
 
 type Maintenance = {
   panelHost: string; mailHost: string; vpsIp: string; image: string; sourceMode: boolean; maintenanceAvailable: boolean
@@ -169,9 +170,10 @@ export default function PanelSettings() {
       </section>
     </div>
     <CertificatesSection embedded />
-    <section className="panel"><div className="section-title"><h2>备份与账号对账</h2></div><p className="hint">下载面板数据库快照和邮件服务配置；对账会比较面板记录与邮件服务账号，不自动修改数据。</p>
+    <section className="panel"><div className="section-title"><h2>备份与账号对账</h2></div><p className="hint">账号对账会比较面板与邮件服务中的邮箱、别名和转发规则，列出缺失或多余项目；这里只检查，不会自动改动账户。数据库备份保存面板管理数据，邮件配置备份保存邮件服务账号配置、密钥等文件；这两项目前只支持下载，不含实际邮件，也不能从此处导入。</p>
       <div className="panel-maintenance-actions"><a className="btn-link" href="/api/v1/system/backup?what=db">下载面板数据库</a><a className="btn-link" href="/api/v1/system/backup?what=dms-config">下载邮件配置</a><button type="button" onClick={() => void checkAccounts()}>检查账号同步</button></div>
       {reconcile && <p className="hint" role="status">{reconcile}</p>}
+      <MailArchiveManager />
     </section>
     {confirm && <div className="maintenance-confirm" role="dialog" aria-modal="true" aria-label="确认面板操作"><div className="maintenance-confirm-card"><h2>应用域名配置</h2>
       <p>{`将面板设置为 ${panelHost}，邮件主机设置为 ${mailHost}。服务会短暂重启。`}</p>
