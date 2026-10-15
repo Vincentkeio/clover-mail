@@ -305,8 +305,17 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .mailbox-reset { display:flex; align-items:flex-end; gap:8px; margin-top:10px; }
 .mailbox-reset .field { min-width:140px; }
 .mailbox-list-actions { display:flex; align-items:center; flex-wrap:wrap; gap:9px; }
-.global-mail-protocols,.global-mail-content { margin:11px 0 15px; padding:11px 13px; border:1px solid #e3e9e4; border-radius:6px; }
-.global-mail-protocols legend,.global-mail-content legend { padding:0 5px; color:#526158; font-size:12px; font-weight:650; }
+.global-mail-protocols,.global-mail-content,.mail-client-config { min-width:0; margin:11px 0 15px; padding:11px 13px; border:1px solid #e3e9e4; border-radius:6px; }
+.global-mail-protocols legend,.global-mail-content legend,.mail-client-config legend { padding:0 5px; color:#526158; font-size:12px; font-weight:650; }
+.mail-client-config .hint-text { margin:0 0 10px; font-size:12px; }
+.mail-client-host { margin:10px 0; font-size:13px; }
+.mail-client-host code { color:var(--ink); overflow-wrap:anywhere; font-weight:600; }
+.mail-client-config table { min-width:280px; margin:0; }
+.mail-client-config .grid th,.mail-client-config .grid td { padding:9px 6px; text-align:left; font-size:12px; }
+.mail-client-config .grid tbody th { border-bottom:1px solid #edf0ed; background:transparent; color:var(--ink); font-weight:500; }
+.mail-client-config .grid tbody tr:last-child th { border-bottom:0; }
+.mail-client-steps { margin:12px 0; padding-left:20px; color:var(--muted); font-size:12px; line-height:1.8; }
+.mail-client-steps strong { color:var(--ink); font-weight:600; }
 .global-mail-protocols .form-row { align-items:center; }
 .global-mail-content>.hint-text,.global-mail-protocols>.hint-text { margin:0 0 8px 25px; font-size:11px; }
 .global-attachment-limit { max-width:320px; margin-top:12px; }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { GlobalMailSettings } from '@/lib/settings'
 
-export default function GlobalMailSettings({ initial }: { initial: GlobalMailSettings }) {
+export default function GlobalMailSettings({ initial, mailHost }: { initial: GlobalMailSettings; mailHost: string }) {
   const router = useRouter()
   const [settings, setSettings] = useState(initial)
   const [unlimited, setUnlimited] = useState(initial.maxAttachmentMb === 0)
@@ -60,6 +60,28 @@ export default function GlobalMailSettings({ initial }: { initial: GlobalMailSet
           <label className="check"><input type="checkbox" checked={settings.allowSmtp} onChange={(event) => toggle('allowSmtp', event.target.checked)} />SMTP 发信</label>
         </div>
         <p className="hint-text">SMTP 开关只控制账号认证发信；邮件服务器之间的收信投递不受影响。POP3 和 ManageSieve 还需在 DMS 环境中启用对应服务。</p>
+      </fieldset>
+      <fieldset className="mail-client-config">
+        <legend>邮件客户端配置</legend>
+        <p className="hint-text">在 Foxmail、Thunderbird、Apple Mail 等客户端添加邮箱时，选择“手动配置”。推荐使用 IMAP，多台设备可同步邮件；也可选择 POP3 下载邮件。</p>
+        {mailHost ? <p className="mail-client-host">收件服务器和发件服务器均填写：<code>{mailHost}</code></p> : <p className="mail-client-host">尚未配置邮件主机名，请先在“环境配置 → DNS 与 TLS”中设置。</p>}
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="邮件客户端服务器端口和加密方式">
+          <table className="grid">
+            <thead><tr><th scope="col">用途</th><th scope="col">协议</th><th scope="col">端口</th><th scope="col">加密方式</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">收件（推荐）</th><td>IMAP</td><td>993</td><td>SSL/TLS</td></tr>
+              <tr><th scope="row">收件</th><td>POP3</td><td>995</td><td>SSL/TLS</td></tr>
+              <tr><th scope="row">发件</th><td>SMTP</td><td>465</td><td>SSL/TLS</td></tr>
+              <tr><th scope="row">发件（备用）</th><td>SMTP</td><td>587</td><td>STARTTLS</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul className="mail-client-steps">
+          <li><strong>用户名：</strong>收件、发件均填写完整邮箱地址，例如 user@example.com。</li>
+          <li><strong>密码：</strong>填写创建邮箱时设置的邮箱密码，不是面板管理员密码。</li>
+          <li><strong>发件认证：</strong>开启“SMTP 服务器需要身份验证”，使用与收件相同的用户名和密码。</li>
+        </ul>
+        <p className="hint-text">收件选择 IMAP 或 POP3 其中一种，发件始终使用 SMTP。请先启用并保存对应协议，确保邮件证书已安装、对应端口已放行。</p>
       </fieldset>
       <fieldset className="global-mail-content">
         <legend>内容与附件</legend>
