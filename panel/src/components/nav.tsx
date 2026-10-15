@@ -97,9 +97,12 @@ export function Nav({ username }: { username: string }) {
     : pathname === href || pathname.startsWith(`${href}/`)
 
   return <>
-    <aside id="panel-navigation" className="app-sidebar" data-collapsed={collapsed} inert={collapsed} aria-hidden={collapsed}>
-      <Link href="/" className="brand-lockup"><img src="/icon.svg" alt="" className="brand-icon"/><span><b>clover</b><small>三叶草邮局</small></span></Link>
-      <nav aria-label="主导航" className="sidebar-nav">{GROUPS.map((group) => <section key={group.title} className="nav-group">
+    <aside id="panel-navigation" className="app-sidebar" data-collapsed={collapsed}>
+      <div className="sidebar-brand">
+        <Link href="/" className="brand-lockup" aria-label="Clover 首页"><img src="/icon.svg" alt="" className="brand-icon"/><span><b>clover</b><small>三叶草邮局</small></span></Link>
+        <button type="button" className="nav-brand-toggle" onClick={toggleNavigation} aria-label={collapsed ? '展开管理导航' : '收起管理导航'} title={collapsed ? '展开管理导航' : '收起管理导航'} aria-controls="panel-navigation-menu" aria-expanded={!collapsed} disabled={!navigationReady}><Chevron/>{collapsed && hasUpdate && <span className="nav-edge-update" role="img" aria-label="有新版本可更新"/>}</button>
+      </div>
+      <nav id="panel-navigation-menu" aria-label="主导航" className="sidebar-nav" inert={collapsed} aria-hidden={collapsed}>{GROUPS.map((group) => <section key={group.title} className="nav-group" style={{ flexGrow: group.links.length }}>
         <h2 className="nav-heading">{group.title}</h2><div className="nav-items">{group.links.map((item) => {
           const active = activeFor(item.href)
           return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
@@ -107,9 +110,8 @@ export function Nav({ username }: { username: string }) {
             <span className="nav-icon"><Icon name={item.icon}/></span><span className="nav-label">{item.label}</span>{item.href === '/updates' && hasUpdate && <span className="nav-update-badge">有更新</span>}<Status value={item.status ? health[item.status] : undefined}/>
           </Link>
         })}</div></section>)}</nav>
-      <div className="sidebar-account"><span className="account-avatar" aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span><span className="account-details"><span className="account-name" title={username}>{username}</span><span className="account-role">管理员</span></span><NavLogout/></div>
+      <div className="sidebar-account" inert={collapsed} aria-hidden={collapsed}><span className="account-avatar" aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span><span className="account-details"><span className="account-name" title={username}>{username}</span><span className="account-role">管理员</span></span><NavLogout/></div>
     </aside>
-    <button type="button" className="nav-edge-toggle" data-collapsed={collapsed} onClick={toggleNavigation} aria-label={collapsed ? '展开管理导航' : '收起管理导航'} title={collapsed ? '展开管理导航' : '收起管理导航'} aria-controls="panel-navigation" aria-expanded={!collapsed} disabled={!navigationReady}><Chevron/>{collapsed && hasUpdate && <span className="nav-edge-update" role="img" aria-label="有新版本可更新"/>}</button>
     <header className="mobile-header" data-collapsed={collapsed}>
       <div className="mobile-brand"><Link href="/" aria-label="Clover 首页"><img src="/icon.svg" alt="" className="brand-icon"/></Link><b>clover</b><span className="mobile-user" title={username}>{username}</span><NavLogout/><button type="button" className="mobile-nav-toggle" onClick={toggleNavigation} aria-label={collapsed ? '展开管理导航' : '收起管理导航'} title={collapsed ? '展开管理导航' : '收起管理导航'} aria-controls="panel-mobile-navigation" aria-expanded={!collapsed} disabled={!navigationReady}><Chevron/>{collapsed && hasUpdate && <span className="nav-edge-update" role="img" aria-label="有新版本可更新"/>}</button></div>
       <nav id="panel-mobile-navigation" aria-label="主导航" className="mobile-nav" hidden={collapsed}>{GROUPS.map((group) => {
