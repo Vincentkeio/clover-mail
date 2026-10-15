@@ -168,11 +168,14 @@ export type DnsDiff = {
   posts: CfRecordInput[]
   patches: Array<{ id: string } & Partial<CfRecordInput>>
   deletes: Array<{ id: string }>
+  conflicts: string[]
 }
 
 /**
  * diff：面板生成的记录 vs CF 现状。
  * - 托管识别靠 comment（cloverTag 精确匹配）
+ * - 已存在的完全相同手动记录视为满足当前规格，避免重复 POST
+ * - SPF 冲突会阻止整批推送，避免创建第二条 SPF
  * - 同名同型但 comment 非本组的存量 clover 记录 → 删除（废弃托管项）
  */
 export function diffAgainstExisting(
@@ -185,12 +188,55 @@ export function diffAgainstExisting(
 
   const posts: CfRecordInput[] = []
   const patches: DnsDiff['patches'] = []
+  const conflicts: string[] = []
 
   for (const spec of specs) {
     const input = toCfInput(domain, spec)
     const hit = existingByKey.get(recordKey(input.type, input.name, spec.cloverTag))
+    const sameOwner = existing.filter((record) =>
+      record.type.toUpperCase() === input.type.toUpperCase() &&
+      record.name.replace(/\.$/, '').toLowerCase() === input.name.replace(/\.$/, '').toLowerCase(),
+    )
+
+    if (spec.cloverTag === 'clover-mail-a') {
+      const aRecords = sameOwner.filter((record) => record.type.toUpperCase() === 'A')
+      if (aRecords.some((record) => record.content !== input.content)) {
+        conflicts.push(`${input.name} 已有指向其他 IP 的 A 记录；请先确认并修正邮件主机地址。`)
+        continue
+      }
+      if (aRecords.length > 1) {
+        conflicts.push(`${input.name} 有多条 A 记录；请先确认邮件主机只解析到预期 VPS IP ${input.content}。`)
+        continue
+      }
+    }
+
+    if (spec.cloverTag === 'clover-spf') {
+      const spfs = sameOwner.filter((record) => /^v=spf1(?:\s|$)/i.test(record.content.trim()))
+      if (spfs.length > 1) {
+        conflicts.push(`${input.name} 已有 ${spfs.length} 条 SPF 记录；请先合并为一条后再推送。`)
+        continue
+      }
+      if (!hit && spfs.length === 1) {
+        if (spfs[0].content === input.content) continue
+        conflicts.push(`${input.name} 已有一条非 Clover SPF 记录（${spfs[0].content}）；请将 VPS 授权合并进该记录后再推送，避免新增第二条 SPF。`)
+        continue
+      }
+    }
+
     if (!hit) {
-      posts.push(input)
+      const identical = sameOwner.find((record) =>
+        record.content === input.content &&
+        (record.priority ?? undefined) === (input.priority ?? undefined),
+      )
+      if (identical) {
+        // An identical manually managed record already satisfies this spec.
+        // Ensure the unified mail A record remains DNS-only.
+        if (spec.cloverTag === 'clover-mail-a' && identical.proxied === true) {
+          patches.push({ id: identical.id, proxied: false })
+        }
+      } else {
+        posts.push(input)
+      }
     } else if (
       hit.content !== input.content ||
       (hit.priority ?? undefined) !== input.priority ||
@@ -205,7 +251,7 @@ export function diffAgainstExisting(
     .filter((r) => (r.comment ?? '').startsWith('clover') && !wantedKeys.has(recordKey(r.type, r.name, r.comment ?? '')))
     .map((r) => ({ id: r.id }))
 
-  return { posts, patches, deletes }
+  return { posts, patches, deletes, conflicts }
 }
 
 /** Quote DNS character strings by octet, including UTF-8 and zone metacharacters. */

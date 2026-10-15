@@ -135,6 +135,14 @@ export async function pushDomainDns(domain: DomainRow, tokenOverride?: string): 
   }
 
   const diff = diffAgainstExisting(domain.name, specs, existing)
+  if (diff.conflicts.length > 0) {
+    return {
+      domain: domain.name,
+      ok: false,
+      zoneId,
+      error: `Cloudflare 中存在与邮件 DNS 预期冲突的记录，未推送任何变更：${diff.conflicts.join(' ')}`,
+    }
+  }
   const existingById = new Map(existing.map((record) => [record.id, record]))
   const changes = {
     added: diff.posts.map((record) => `${record.type} ${record.name}`),
@@ -144,6 +152,7 @@ export async function pushDomainDns(domain: DomainRow, tokenOverride?: string): 
         before?.content !== patch.content ? '内容' : null,
         (before?.priority ?? undefined) !== patch.priority ? '优先级' : null,
         (before?.ttl ?? undefined) !== patch.ttl ? 'TTL' : null,
+        before?.proxied !== patch.proxied ? '代理状态' : null,
       ].filter(Boolean)
       return `${before?.type ?? 'DNS'} ${before?.name ?? patch.id}${fields.length ? `（${fields.join('、')}）` : ''}`
     }),
