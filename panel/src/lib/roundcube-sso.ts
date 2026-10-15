@@ -2,7 +2,7 @@ import 'server-only'
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { db, sqlite } from '@/db'
-import { admins, mailboxes } from '@/db/schema'
+import { admins, domains, mailboxes } from '@/db/schema'
 import { getGlobalMailSettings } from './settings'
 import { getRoundcubeCredentials } from './roundcube-auth'
 
@@ -15,7 +15,7 @@ export function validRoundcubeKey(value: string | null) {
   return left.length === right.length && timingSafeEqual(left, right)
 }
 export async function assertRoundcubeMailbox(login: string) {
-  const [box] = await db.select({ login: mailboxes.login }).from(mailboxes).where(and(eq(mailboxes.login, login), eq(mailboxes.active, true))).limit(1)
+  const [box] = await db.select({ login: mailboxes.login }).from(mailboxes).innerJoin(domains, eq(mailboxes.domainId, domains.id)).where(and(eq(mailboxes.login, login), eq(mailboxes.active, true), eq(domains.active, true))).limit(1)
   const policy = await getGlobalMailSettings()
   if (!box || !policy.allowImap) throw new Error('邮箱不存在、已停用或全局 IMAP 已关闭。')
 }

@@ -34,6 +34,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const id = Number((await ctx.params).id)
   const [domain] = await db.select().from(domains).where(eq(domains.id, id)).limit(1)
   if (!domain) return NextResponse.json({ error: 'domain_not_found' }, { status: 404 })
+  if (!domain.active) return NextResponse.json({ error: '请先启用该域名，再创建转发规则。' }, { status: 409 })
 
   const parsed = createRuleSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) {

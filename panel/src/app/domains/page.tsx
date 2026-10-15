@@ -5,6 +5,7 @@ import { db } from '@/db'
 import { domains, mailboxes, routingRules } from '@/db/schema'
 import { getCurrentAdmin } from '@/lib/auth'
 import DomainCreateForm from './domain-create-form'
+import DomainRowControls from './domain-row-controls'
 import { getMailHostname } from '@/lib/settings'
 
 export const dynamic = 'force-dynamic'
@@ -44,7 +45,7 @@ export default async function DomainsPage() {
                 <th>规则</th>
                 <th>归属验证 TXT</th>
                 <th>状态</th>
-                <th />
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -57,14 +58,7 @@ export default async function DomainsPage() {
                   <td>{mbMap.get(d.id) ?? 0}</td>
                   <td>{ruMap.get(d.id) ?? 0}</td>
                   <td className="mono">{d.ownershipToken}</td>
-                  <td>
-                    <span className={'tag ' + (d.active ? 'ok' : 'err')}>{d.active ? '启用' : '停用'}</span>
-                  </td>
-                  <td>
-                    <Link className="btn-link" href={`/domains/${d.id}`}>
-                      管理
-                    </Link>
-                  </td>
+                  <DomainRowControls id={d.id} name={d.name} active={d.active} mailboxCount={mbMap.get(d.id) ?? 0} ruleCount={ruMap.get(d.id) ?? 0} />
                 </tr>
               ))}
             </tbody>

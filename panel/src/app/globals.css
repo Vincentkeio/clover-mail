@@ -176,6 +176,17 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .table-scroll { max-width:100%; overflow-x:auto; }
 .domain-list-table td { vertical-align:middle; }
 .domain-list-table .btn-link { display:inline-flex; align-items:center; justify-content:center; }
+.domain-list-table th:last-child,.domain-list-table td:last-child { white-space:nowrap; }
+.domain-row-actions { display:flex; align-items:center; gap:7px; }
+.domain-row-actions .btn-link,.domain-row-actions .danger { min-width:56px; min-height:34px; padding:0 10px; font-size:12px; }
+.domain-status-switch { display:inline-flex; align-items:center; gap:8px; color:#46564d; font-size:12px; font-weight:600; white-space:nowrap; }
+.domain-status-switch[aria-checked="true"] { color:#17694e; }
+.domain-status-switch:focus-visible { outline:2px solid var(--green); outline-offset:3px; border-radius:4px; }
+.domain-switch-track { display:flex; width:31px; height:18px; align-items:center; padding:2px; border-radius:999px; background:#b6c1b9; transition:background .16s ease; }
+.domain-switch-thumb { width:14px; height:14px; border-radius:50%; background:white; box-shadow:0 1px 2px rgb(0 0 0 / 14%); transition:transform .16s ease; }
+.domain-status-switch[aria-checked="true"] .domain-switch-track { background:var(--green); }
+.domain-status-switch[aria-checked="true"] .domain-switch-thumb { transform:translateX(13px); }
+.domain-row-error { display:block; max-width:230px; margin:5px 0 0; color:#a53631; font-size:11px; line-height:1.45; white-space:normal; }
 .nav-update-badge { margin-left:auto; flex:0 0 auto; padding:2px 6px; border-radius:4px; background:#fff0d4; color:#8b550d; font-size:10px; font-weight:650; white-space:nowrap; }
 .mobile-nav-group summary .nav-update-dot { width:6px; height:6px; flex:0 0 6px; border-radius:50%; background:#a86813; }
 .update-version-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:16px; margin:16px 0; }
