@@ -36,11 +36,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 读取数字版本号
         id: version
@@ -111,3 +113,34 @@ jobs:
             echo "${{ steps.meta.outputs.tags }}"
             echo "\`\`\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 确定 Release 版本
+        id: release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REF_NAME" = main ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            previous="$(git show "$BEFORE:panel/package.json" 2>/dev/null | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { try { console.log(JSON.parse(s).version || "") } catch { console.log("") } })')"
+            if [ "$VERSION" != "$previous" ]; then
+              echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: 发布 GitHub Release
+        if: steps.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG 已存在，跳过。"
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "clover-mail $RELEASE_TAG" \
+              --generate-notes \
+              --target "$GITHUB_SHA"
+          fi
