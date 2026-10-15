@@ -26,7 +26,7 @@ async function fetchJson(url: string, init?: RequestInit) {
   return { body: await response.json() as Record<string, unknown>, headers: response.headers }
 }
 
-const cacheKey = 'system_update_check_cache'
+const cacheKey = 'system_update_check_cache_v2'
 const sourceRepository = /^[\w.-]+\/[\w.-]+$/.test(process.env.CLOVER_REPO || '') ? process.env.CLOVER_REPO! : 'Vincentkeio/clover-mail'
 const sourceRef = process.env.CLOVER_REF || 'main'
 type Cache = { day: string; fingerprint: string; checkedAt: string; result: UpdateCheck | null; error: string }
@@ -114,7 +114,12 @@ async function inspectRemote(current: UpdateCheck['current']): Promise<UpdateChe
 
 
   const sourceChanged = Boolean(commitSha && (current.sourceRevision || current.revision) && commitSha !== (current.sourceRevision || current.revision))
-  const status = current.imageId !== configDigest || sourceChanged ? 'available' : current.sourceBuild ? 'source' : 'latest'
+  // Docker's classic image store exposes the config digest as .Image. The
+  // containerd image store can expose the manifest/index digest instead.
+  // Compare against each digest of this exact published image, never treat
+  // different digest representations alone as a newer release.
+  const imageMatches = [configDigest, selectedDigest, first.headers.get('docker-content-digest')].includes(current.imageId)
+  const status = !imageMatches || sourceChanged ? 'available' : current.sourceBuild ? 'source' : 'latest'
   const message = status === 'available' ? '有新版本可更新。' : status === 'source' ? '当前使用本地构建；可手动更新至最新发布版本。' : '当前已是最新版本。'
   return { checkedAt: new Date().toISOString(), status, message, current,
     latest: { tag: 'latest', digest: selectedDigest, createdAt: created, revision },
