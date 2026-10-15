@@ -2,7 +2,7 @@
 set -euo pipefail
 
 CLOVER_HOME="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-TARGET="/usr/local/bin/clover"
+TARGET="${CLOVER_CLI_TARGET:-/usr/local/bin/clover}"
 SOURCE="${CLOVER_HOME}/scripts/clover.sh"
 
 [ "$(id -u)" -eq 0 ] || { echo "安装 clover 命令需要 root 权限。" >&2; exit 1; }

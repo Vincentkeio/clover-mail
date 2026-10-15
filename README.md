@@ -41,6 +41,27 @@ bash install.sh
 
 按提示填写面板域名。首次安装会在终端显示随机生成的管理员账号和密码，请保存后登录面板。
 
+### Docker Compose 安装
+
+适合已安装 Docker 和 Compose v2、可独占 80/443 等所需端口的 Linux 服务器。以 root 在服务器操作：
+
+```bash
+git clone https://github.com/Vincentkeio/clover-mail.git clover
+cd clover
+cp .env.example .env
+nano .env
+```
+
+将 `PANEL_HOSTNAME`、`MAIL_DOMAIN`、`MAIL_HOSTNAME` 和 `ACME_EMAIL` 改为自己的域名和邮箱；可同时填写 `CLOVER_VPS_IP`、调整时区及其他参数。首次安装的密钥项保留模板值或留空即可，初始化会自动生成。
+
+保存后运行一条命令完成安装：
+
+```bash
+CLOVER_HOME="$PWD" docker compose --profile install run --rm installer
+```
+
+Compose 初始化会生成密钥、准备邮件 TLS、启动服务、创建管理员并安装 `clover` 快捷命令。管理员凭据显示在终端；已有数据和管理员会保留。后续可直接用 `docker compose up -d` 启动服务。已有宿主机 Nginx/Caddy 需共享端口时，请使用上方推荐的安装器。
+
 ## 开始使用
 
 1. **环境配置**：连接 Cloudflare，选择邮件域名并设置邮件主机名，生成和推送 DNS 记录。

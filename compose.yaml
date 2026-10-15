@@ -3,6 +3,19 @@
 name: clover
 
 services:
+  installer:
+    profiles: [install]
+    image: docker:cli
+    working_dir: ${CLOVER_HOME:-/opt/clover}
+    environment:
+      - CLOVER_HOME=${CLOVER_HOME:-/opt/clover}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${CLOVER_HOME:-/opt/clover}:${CLOVER_HOME:-/opt/clover}
+      - /usr/local/bin:/host-bin
+    entrypoint: [sh, -c]
+    command: ["apk add --no-cache bash openssl util-linux && exec bash scripts/compose-install.sh"]
+
   mail:
     # DMS 版本策略：M0 先用 latest 跑通真机验收，验收通过后锁死具体 tag（见 docs/plan.md 风险表）
     image: ghcr.io/docker-mailserver/docker-mailserver:latest

@@ -10,6 +10,7 @@ node_modules
 work
 dist
 .workbuddy-ai
+.clover-compose-install.lock
 *.log
 **/*.pem
 **/*.key

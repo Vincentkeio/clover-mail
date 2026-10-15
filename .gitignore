@@ -35,6 +35,7 @@ Thumbs.db
 # 助手内部状态（本地笔记，不发布）
 .workbuddy-ai/
 work/
+.clover-compose-install.lock
 
 # 发布产物
 dist/
