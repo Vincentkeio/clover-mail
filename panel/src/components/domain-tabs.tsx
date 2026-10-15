@@ -25,6 +25,6 @@ export function DomainTabs({ mailboxes, rules, dns, initialTab = 'dns' }: { mail
     <div role="tablist" aria-label="域名管理" className="domain-tabs-list">
       {TABS.map((tab) => <button key={tab.id} id={`domain-tab-${tab.id}`} type="button" role="tab" aria-selected={active === tab.id} aria-controls="domain-tab-panel" tabIndex={active === tab.id ? 0 : -1} onClick={() => setActive(tab.id)} onKeyDown={(event) => onTabKey(event, tab.id)} className={`domain-tab ${active === tab.id ? 'is-active' : ''}`}><span>{tab.label}</span><small>{tab.description}</small></button>)}
     </div>
-    <section key={active} id="domain-tab-panel" role="tabpanel" aria-labelledby={`domain-tab-${active}`} className="domain-tab-panel">{panels[active]}</section>
+    <section id="domain-tab-panel" role="tabpanel" aria-labelledby={`domain-tab-${active}`} className="domain-tab-panel">{panels[active]}</section>
   </div>;
 }
