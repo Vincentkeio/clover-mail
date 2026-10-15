@@ -25,7 +25,7 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 # docker CLI：面板经 docker exec 调 DMS 内部 setup 落地账号
 # curl：DNS-over-HTTPS 体检（dns-check/dnsbl）必须，缺了会在真机上静默失败
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl docker.io \
+ && apt-get install -y --no-install-recommends ca-certificates curl docker.io tar \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/public ./public

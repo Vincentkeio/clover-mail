@@ -36,6 +36,8 @@ FILES=(
   docs/manual-acceptance.md
   docs/mail-client-setup.md
   scripts/backup.sh
+  scripts/migration-export.sh
+  scripts/migration-restore.sh
   scripts/clover.sh
   scripts/admin-bootstrap.sh
   scripts/reinstall.sh

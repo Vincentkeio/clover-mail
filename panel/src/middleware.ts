@@ -53,5 +53,7 @@ export function middleware(req: NextRequest) {
 export const config = {
   // middleware 里用 node:crypto 做 HMAC 验签，必须固定 Node 运行时（edge 不支持 node: 前缀模块）
   runtime: 'nodejs',
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Upload routes authenticate inside their handlers. Skip middleware body
+  // cloning so large backup streams are neither buffered nor truncated.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/v1/system/migration|api/v1/system/backup).*)'],
 }

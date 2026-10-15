@@ -20,6 +20,13 @@ sqlite.pragma('foreign_keys = ON')
 export const db = drizzle(sqlite, { schema })
 export { sqlite, resolved as databasePath }
 
+export function closeDatabase() {
+  if (sqlite.open) {
+    sqlite.pragma('wal_checkpoint(TRUNCATE)')
+    sqlite.close()
+  }
+}
+
 // 启动即迁移（幂等）：schema 变更随部署自动就位。
 // 注意：放在本模块而非 instrumentation.ts —— Next 15 会把 instrumentation
 // 按 edge 目标编译，node:fs 无法解析，better-sqlite3 会构建失败。
