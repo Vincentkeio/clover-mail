@@ -103,7 +103,9 @@ services:
       - CLOVER_CADDY_SCHEME=${CLOVER_CADDY_SCHEME:-https}
       - CLOVER_TLS_DIRECTIVE=${CLOVER_TLS_DIRECTIVE:-}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Mount the directory: git/archive updates replace files atomically, which
+      # leaves a single-file bind mount pointing at the previous file inode.
+      - ./caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:

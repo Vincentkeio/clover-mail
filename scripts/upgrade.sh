@@ -245,7 +245,9 @@ done
 
 if [ "${ok}" -eq 1 ]; then
   bash scripts/configure-roundcube.sh
-  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+  # Archive updates can replace the mounted directory itself. Recreate the
+  # gateway so both Git and archive upgrades use the current host files.
+  docker compose "${COMPOSE_FILES[@]}" up -d --no-deps --no-build --force-recreate caddy
   log "升级完成，面板与 Roundcube 免密连接已就绪。查看状态：docker compose ps"
   log "迁移日志：docker logs clover-panel | grep migrations"
 else
