@@ -22,6 +22,10 @@ services:
     container_name: docker-mailserver
     hostname: ${MAIL_HOSTNAME}
     env_file: .env
+    environment:
+      # Rewriting the envelope sender is required for forwarding aliases to
+      # external recipients, otherwise the original sender's SPF can fail.
+      ENABLE_SRS: ${ENABLE_SRS:-1}
     ports:
       - "25:25"        # SMTP（外部 MX 入站投递）
       - "465:465"      # SMTPS（客户端隐式 TLS 提交）

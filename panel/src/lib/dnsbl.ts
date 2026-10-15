@@ -101,8 +101,14 @@ export async function domainHealth(domain: string, mailHostname: string): Promis
   })
   await safe(async () => {
     const txts = await resolveTxt(domain)
-    const spf = txts.find((t) => t.startsWith('v=spf1'))
-    return { key: 'spf', label: 'SPF 记录存在', ok: !!spf, detail: spf ?? '未找到 v=spf1 记录' }
+    const spfs = txts.filter((t) => /^v=spf1(?:\s|$)/i.test(t.trim()))
+    const ok = spfs.length === 1
+    const detail = spfs.length === 0
+      ? '未找到 SPF 记录'
+      : spfs.length > 1
+        ? `发现 ${spfs.length} 条 SPF 记录；同一域名只能发布一条。${spfs.join(' | ')}`
+        : `DNS 中发现一条 SPF 记录：${spfs[0]}（未验证完整 SPF 语法或真实邮件认证）`
+    return { key: 'spf', label: spfs.length > 1 ? 'SPF 记录重复' : 'SPF 单记录检查', ok, detail }
   })
   await safe(async () => {
     const txts = await resolveTxt(`mail._domainkey.${domain}`)
@@ -110,7 +116,7 @@ export async function domainHealth(domain: string, mailHostname: string): Promis
   })
   await safe(async () => {
     const txts = await resolveTxt(`_dmarc.${domain}`)
-    const dmarc = txts.find((t) => t.startsWith('v=DMARC1'))
+    const dmarc = txts.find((t) => /^v=DMARC1(?:\s|;|$)/i.test(t.trim()))
     return { key: 'dmarc', label: 'DMARC 记录存在', ok: !!dmarc, detail: dmarc ?? '未找到 DMARC TXT' }
   })
 

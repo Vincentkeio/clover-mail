@@ -41,8 +41,8 @@ export default function DnsPanel({ domainId, domainName }: { domainId: number; d
       const updated = result.changes?.updated.length ? ` 更新项：${result.changes.updated.join('、')}。` : ''
       const checked = result.check
         ? result.check.passed === result.check.total
-          ? ` 公网 DNS 检查 ${result.check.passed}/${result.check.total} 项通过。`
-          : ` Cloudflare 已完成记录同步；公网 DNS 检查 ${result.check.passed}/${result.check.total} 项通过。解析器可能仍缓存旧结果，请稍后点“重新检测 DNS”，无需再次推送。`
+          ? ` 公网 DNS 记录检查 ${result.check.passed}/${result.check.total} 项匹配。`
+          : ` Cloudflare 已完成记录同步；公网 DNS 记录检查 ${result.check.passed}/${result.check.total} 项匹配。解析器可能仍缓存旧结果，请稍后点“重新检测 DNS”，无需再次推送。`
         : ' 未能检查公网 DNS，请确认已设置 VPS IP。'
       setMsg({ ok: true, text: `${summary}${updated}${checked}` })
       await load()
@@ -53,7 +53,7 @@ export default function DnsPanel({ domainId, domainName }: { domainId: number; d
     setBusy(action); setMsg(null)
     try {
       const result = await post(action)
-      if (action === 'check') { const passed = (result.items ?? []).filter((item: CheckItem) => item.ok).length; setMsg({ ok: true, text: `检测完成：${passed}/${(result.items ?? []).length} 项通过。` }) }
+      if (action === 'check') { const passed = (result.items ?? []).filter((item: CheckItem) => item.ok).length; setMsg({ ok: true, text: `DNS 记录检查完成：${passed}/${(result.items ?? []).length} 项匹配。` }) }
       else setMsg({ ok: true, text: `已生成 ${result.count ?? 0} 条记录。` })
       await load()
     } catch (error) { setMsg({ ok: false, text: String(error) }) }
@@ -70,9 +70,9 @@ export default function DnsPanel({ domainId, domainName }: { domainId: number; d
       <div className="dns-primary-actions"><button className="primary dns-primary-button" type="button" onClick={syncToCloudflare} disabled={busy !== null}>{busy === 'sync' ? '正在生成并同步…' : '推送到 Cloudflare'}<span aria-hidden="true">→</span></button><span className="hint-text">{data.generated.length} 条记录 · {pushed} 条由面板推送</span></div>
       {msg && <div role="status" className={'msg ' + (msg.ok ? 'ok' : 'err')}>{msg.text}</div>}
       <div className="dns-check-summary" aria-busy={busy === 'check'}>
-        <div className="section-title"><h3>生效状态</h3><div className="dns-check-actions"><span className="count" aria-live="polite">{items.length ? `${items.filter((item) => item.ok).length}/${items.length} 项通过` : '尚未检测'}</span><button type="button" disabled={busy !== null} onClick={() => act('check')}>{busy === 'check' && <span className="domain-apply-spinner" aria-hidden="true"/>}{busy === 'check' ? '检测中…' : '重新检测 DNS'}</button></div></div>
+        <div className="section-title"><h3>DNS 记录检查</h3><div className="dns-check-actions"><span className="count" aria-live="polite">{items.length ? `${items.filter((item) => item.ok).length}/${items.length} 项匹配` : '尚未检测'}</span><button type="button" disabled={busy !== null} onClick={() => act('check')}>{busy === 'check' && <span className="domain-apply-spinner" aria-hidden="true"/>}{busy === 'check' ? '检测中…' : '重新检测 DNS'}</button></div></div>
         {items.length > 0 && <div className="checklist-row">{items.map((item) => <span key={item.key} className={'tag ' + (item.ok ? 'ok' : 'warn')}>{item.ok ? '✓' : '·'} {item.label}</span>)}</div>}
-        <p className="hint dns-check-time">{data.checklist?.checkedAt ? `上次检测：${new Date(data.checklist.checkedAt).toLocaleString('zh-CN')}。` : ''}刷新页面仅显示已保存的结果；点击“重新检测 DNS”查询最新解析。</p>
+        <p className="hint dns-check-time">这里只检查公网 DNS 记录是否与面板预期匹配，不会发送测试邮件，也不代表收件方认证或收件箱投递通过。{data.checklist?.checkedAt ? `上次检测：${new Date(data.checklist.checkedAt).toLocaleString('zh-CN')}。` : ''}刷新页面仅显示已保存的结果；点击“重新检测 DNS”查询最新解析。</p>
       </div>
     </section>
     <details className="advanced-details dns-advanced"><summary>高级选项 <span>手动导入、记录预览与 DNS 检查</span></summary><div className="advanced-body">
@@ -83,10 +83,10 @@ export default function DnsPanel({ domainId, domainName }: { domainId: number; d
       <div className="table-scroll"><table className="grid"><thead><tr><th>类型</th><th>名称</th><th>内容</th><th>用途</th><th>状态</th></tr></thead><tbody>{data.generated.map((record) => {
         const stored = data.records.find((item) => item.type === record.type && item.name === record.name && item.comment === record.cloverTag)
         const check = items.find((item) => item.key === RECORD_CHECK_KEYS[record.cloverTag])
-        const status = check?.ok ? { label: '已生效', tone: 'ok' } : check ? { label: '未通过', tone: 'warn' } : { label: stored?.status === 'pushed' ? '已推送' : '未检测', tone: '' }
+        const status = check?.ok ? { label: 'DNS 匹配', tone: 'ok' } : check ? { label: '未匹配', tone: 'warn' } : { label: stored?.status === 'pushed' ? '已推送' : '未检测', tone: '' }
         return <tr key={record.cloverTag}><td>{record.type}</td><td className="mono">{record.name === '@' ? domainName : `${record.name}.${domainName}`}</td><td className="mono record-content">{record.content}</td><td>{record.purpose}</td><td><span className={'tag ' + status.tone}>{status.label}</span></td></tr>
       })}</tbody></table></div>
-      {items.length > 0 && <><div className="section-title detail-check-title"><h3>DNS 检测明细</h3><span className="count">{data.checklist?.checkedAt ? `检测于 ${new Date(data.checklist.checkedAt).toLocaleString('zh-CN')}` : ''}</span></div><div className="table-scroll"><table className="grid"><thead><tr><th>项目</th><th>结果</th><th>期望</th><th>实际</th></tr></thead><tbody>{items.map((item) => <tr key={item.key}><td>{item.label}</td><td><span className={'tag ' + (item.ok ? 'ok' : 'err')}>{item.ok ? '通过' : '未通过'}</span></td><td className="mono record-content">{item.expected || '—'}</td><td className="mono record-content">{item.actual || '(空)'}</td></tr>)}</tbody></table></div></>}
+      {items.length > 0 && <><div className="section-title detail-check-title"><h3>DNS 检测明细</h3><span className="count">{data.checklist?.checkedAt ? `检测于 ${new Date(data.checklist.checkedAt).toLocaleString('zh-CN')}` : ''}</span></div><div className="table-scroll"><table className="grid"><thead><tr><th>项目</th><th>结果</th><th>期望</th><th>实际</th></tr></thead><tbody>{items.map((item) => <tr key={item.key}><td>{item.label}</td><td><span className={'tag ' + (item.ok ? 'ok' : 'err')}>{item.ok ? 'DNS 匹配' : '未匹配'}</span></td><td className="mono record-content">{item.expected || '—'}</td><td className="mono record-content">{item.actual || '(空)'}</td></tr>)}</tbody></table></div></>}
     </div></details>
   </div>
 }

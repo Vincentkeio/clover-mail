@@ -151,9 +151,27 @@ export async function runChecklist(opts: {
   })
   addCheck(async () => {
     const txts = await txtRecords(domain)
-    const spf = txts.find((t) => t.startsWith('v=spf1'))
-    const hit = !!spf && spf.includes(`ip4:${vpsIp}`)
-    return { key: 'spf', label: 'SPF', ok: hit, expected: `v=spf1 … ip4:${vpsIp}`, actual: spf ?? '(空)' }
+    const spfs = txts.filter((t) => /^v=spf1(?:\s|$)/i.test(t.trim()))
+    const spf = spfs[0]
+    const unique = spfs.length === 1
+    const authorizesIp = !!spf && spf.includes(`ip4:${vpsIp}`)
+    const actual = spfs.length
+      ? spfs.map((record, index) => `${index + 1}. ${record}`).join(' | ')
+      : '(未找到 SPF 记录)'
+    const reason = spfs.length > 1
+      ? `发现 ${spfs.length} 条 SPF 记录；同一域名只能发布一条。实际：${actual}`
+      : spfs.length === 0
+        ? actual
+        : authorizesIp
+          ? spf!
+          : `${spf}（未包含本机 IPv4 ip4:${vpsIp}）`
+    return {
+      key: 'spf',
+      label: spfs.length > 1 ? 'SPF 重复' : 'SPF',
+      ok: unique && authorizesIp,
+      expected: `恰好一条 SPF 记录，且包含 ip4:${vpsIp}`,
+      actual: reason,
+    }
   })
   if (dkimPublicKey) {
     addCheck(async () => {
@@ -170,7 +188,7 @@ export async function runChecklist(opts: {
   }
   addCheck(async () => {
     const txts = await txtRecords(`_dmarc.${domain}`)
-    const dmarc = txts.find((t) => t.startsWith('v=DMARC1'))
+    const dmarc = txts.find((t) => /^v=DMARC1(?:\s|;|$)/i.test(t.trim()))
     return { key: 'dmarc', label: 'DMARC', ok: !!dmarc, expected: 'v=DMARC1; …', actual: dmarc ?? '(空)' }
   })
 
