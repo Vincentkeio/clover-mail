@@ -105,19 +105,11 @@ case "$action" in
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
     echo '正在备份面板数据库…'
     docker exec clover-panel node -e 'const Database=require("better-sqlite3"); const db=new Database("/app/data/clover.db"); db.backup("/app/data/clover-before-update-"+process.argv[1]+".db").then(()=>db.close()).catch((err)=>{console.error(err);process.exit(1)})' "$stamp"
-    image="$(docker inspect clover-panel --format '{{.Config.Image}}')"
-    digests="$(docker image inspect "$image" --format '{{json .RepoDigests}}')"
-    if [ -f .clover-local-build ] || [ "$digests" = '[]' ] || [ "$digests" = 'null' ]; then
-      echo '当前为本机源码构建，正在构建新面板镜像…'
-      test -f panel/Dockerfile || { echo '本机源码不可用'; exit 1; }
-      docker build -t "$image" ./panel
-    else
-      echo '正在拉取发布镜像…'
-      docker compose pull panel
-    fi
-    echo '正在切换面板容器…'
-    docker compose up -d --force-recreate panel
-    echo '更新完成。'
+    echo '正在准备完整更新工具…'
+    apk add --no-cache bash curl git openssl python3
+    export CLOVER_UPDATE_TO_LATEST=1
+    # Use the same source/scripts/Compose/image update path as the clover CLI.
+    exec bash scripts/upgrade.sh
     ;;
   configure)
     panel_host="${2:-}"

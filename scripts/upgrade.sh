@@ -25,14 +25,22 @@ trap cleanup_upgrade_tmp EXIT
 update_from_archive() {
   local repo="${CLOVER_REPO:-Vincentkeio/clover-mail}"
   local ref="${CLOVER_REF:-main}"
-  local tmp src item deploy_item name url
+  local tmp src item deploy_item name url revision
 
   UPGRADE_TMP="$(mktemp -d)"
   tmp="$UPGRADE_TMP"
-  url="https://codeload.github.com/${repo}/tar.gz/refs/heads/${ref}"
+  # Resolve once, then download that exact commit so version checks describe
+  # the files installed even if the branch advances during the download.
+  local auth_args=()
+  [ -z "${CLOVER_TOKEN:-}" ] || auth_args=(-H "Authorization: Bearer ${CLOVER_TOKEN}")
+  curl -fsSL --max-time 30 "${auth_args[@]}" \
+    "https://api.github.com/repos/${repo}/commits/${ref}" -o "${tmp}/revision.json"
+  revision="$(sed -nE '/"sha"[[:space:]]*:/ { s/.*"sha"[[:space:]]*:[[:space:]]*"([0-9a-f]{40})".*/\1/p; q; }' "${tmp}/revision.json")"
+  [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { echo '无法确认源码版本；当前服务未重建。' >&2; return 1; }
+  url="https://codeload.github.com/${repo}/tar.gz/${revision}"
   if [ -n "${CLOVER_TOKEN:-}" ]; then
     curl -fsSL --max-time 180 -H "Authorization: Bearer ${CLOVER_TOKEN}" \
-      "https://api.github.com/repos/${repo}/tarball/${ref}" -o "${tmp}/clover.tar.gz" \
+      "https://api.github.com/repos/${repo}/tarball/${revision}" -o "${tmp}/clover.tar.gz" \
       || { echo "代码下载失败（请检查仓库、分支和 CLOVER_TOKEN）；当前服务未重建。" >&2; return 1; }
   else
     curl -fsSL --max-time 120 "$url" -o "${tmp}/clover.tar.gz" \
@@ -73,6 +81,7 @@ update_from_archive() {
     esac
   done
   shopt -u dotglob nullglob
+  [ -z "$revision" ] || printf '%s\n' "$revision" > .clover-source-revision
   rm -rf -- "$UPGRADE_TMP"
   UPGRADE_TMP=""
   log "源码更新完成（.env、备份、deploy/acme 证书目录和 Docker 数据卷均保留）"
@@ -183,6 +192,7 @@ if [ "${NO_PULL}" -eq 0 ]; then
       echo "代码更新失败；本地代码改动仍保留在 Git stash 中。请检查 git status 与 git stash list 后重试。" >&2
       exit 1
     }
+    git rev-parse HEAD > .clover-source-revision
   else
     update_from_archive
   fi
@@ -209,6 +219,11 @@ export ROUNDCUBE_SSO_SECRET="$(sed -n 's/^ROUNDCUBE_SSO_SECRET=//p' .env)"
 # 安装目录可能带有 panel/ 源码（例如 bootstrap 解压的 GitHub 源码包），
 # 普通升级仍必须使用 GHCR 发布镜像，避免在 VPS 上本地 npm ci 耗尽磁盘。
 COMPOSE_FILES=(-f compose.yaml)
+
+if [ "${CLOVER_UPDATE_TO_LATEST:-0}" = 1 ]; then
+  set_env CLOVER_TAG latest
+  export CLOVER_TAG=latest
+fi
 
 log "拉取 GHCR 面板镜像及邮件/Caddy 镜像…"
 docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy roundcube || {
@@ -250,6 +265,7 @@ if [ "${ok}" -eq 1 ]; then
   # Archive updates can replace the mounted directory itself. Recreate the
   # gateway so both Git and archive upgrades use the current host files.
   docker compose "${COMPOSE_FILES[@]}" up -d --no-deps --no-build --force-recreate caddy
+  rm -f .clover-local-build
   log "升级完成，面板与 Roundcube 免密连接已就绪。查看状态：docker compose ps"
   log "迁移日志：docker logs clover-panel | grep migrations"
 else

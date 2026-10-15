@@ -9,7 +9,7 @@ import { exportBind, exportPlain, generateDnsRecords } from '@/lib/dns-generator
 
 export const dynamic = 'force-dynamic'
 
-/** 导出：GET ?format=bind（BIND zone 文件，可粘到 CF Import and Export）| text（纯文本清单） */
+/** Both .bind and .txt downloads use importable BIND zone syntax. */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin()
   if (!admin) return unauthorized()
@@ -36,12 +36,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   })
 
   const format = new URL(req.url).searchParams.get('format') ?? 'text'
+  if (!['bind', 'text'].includes(format)) return NextResponse.json({ error: '导出格式无效' }, { status: 400 })
   const filename = format === 'bind' ? `${domain.name}.bind` : `${domain.name}-dns.txt`
   const body = format === 'bind' ? exportBind(domain.name, specs) : exportPlain(domain.name, specs)
   return new Response(body, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'no-store',
     },
   })
 }

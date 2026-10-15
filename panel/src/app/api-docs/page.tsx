@@ -66,7 +66,7 @@ const GROUPS: Array<{ title: string; note?: string; endpoints: Endpoint[] }> = [
   -H "Authorization: Bearer clover_xxx"`,
       },
       { method: 'POST', path: '/api/v1/domains/{id}/dns/check', desc: '公网 DoH 检测 checklist' },
-      { method: 'GET', path: '/api/v1/domains/{id}/dns/export?format=bind|text', desc: '导出 BIND / 文本清单' },
+      { method: 'GET', path: '/api/v1/domains/{id}/dns/export?format=bind|text', desc: '导出 BIND / TXT（均可导入 DNS）' },
       { method: 'GET', path: '/api/v1/dns/preview?domain=example.com', desc: '建域前的记录预览' },
     ],
   },

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import NavLogout from '@/app/nav-logout'
+import { checkForUpdates, useUpdateStatus } from '@/lib/update-client'
 
 type NavItem = { href: string; label: string; icon: string; status?: string }
 const GROUPS: Array<{ title: string; links: NavItem[] }> = [
@@ -24,6 +25,7 @@ const GROUPS: Array<{ title: string; links: NavItem[] }> = [
     { href: '/routing', label: '别名与转发', icon: 'route' },
   ] },
   { title: '高级设置', links: [
+    { href: '/updates', label: '更新与重启', icon: 'refresh' },
     { href: '/manual-dns', label: '手动 DNS', icon: 'globe' },
     { href: '/settings', label: '高级参数', icon: 'sliders' },
     { href: '/monitor/spam', label: '反垃圾', icon: 'shield' },
@@ -38,6 +40,7 @@ function Icon({ name }: { name: string }) {
     {name === 'cloud' && <><path d="M7 18h10a4 4 0 0 0 .4-8A5.7 5.7 0 0 0 6.5 9.3 4.4 4.4 0 0 0 7 18Z"/><path d="m9 13 3-3 3 3m-3-3v7"/></>}
     {name === 'globe' && <><circle cx="12" cy="12" r="9"/><path d="M3.5 12h17M12 3c2.3 2.4 3.4 5.4 3.4 9s-1.1 6.6-3.4 9c-2.3-2.4-3.4-5.4-3.4-9S9.7 5.4 12 3Z"/></>}
     {name === 'pulse' && <path d="M3 12h4l2.4-6 4.2 12 2.4-6H21"/>}
+    {name === 'refresh' && <><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.5-2L20 8M4 16l2.4 3A7 7 0 0 0 18 17"/></>}
     {name === 'shield' && <><path d="M12 3 20 6v5c0 5-3.2 8.2-8 10-4.8-1.8-8-5-8-10V6l8-3Z"/><path d="m9 12 2 2 4-4"/></>}
     {name === 'check' && <><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></>}
     {name === 'mail' && <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></>}
@@ -56,6 +59,9 @@ function Status({ value }: { value?: boolean }) {
 
 export function Nav({ username }: { username: string }) {
   const pathname = usePathname()
+  const update = useUpdateStatus()
+  const hasUpdate = update.result?.status === 'available'
+  useEffect(() => { void checkForUpdates() }, [])
   const [collapsed, setCollapsed] = useState(false)
   const [navigationReady, setNavigationReady] = useState(false)
   const [health, setHealth] = useState<Record<string, boolean>>({})
@@ -94,7 +100,7 @@ export function Nav({ username }: { username: string }) {
           const active = activeFor(item.href)
           return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
             className={`nav-link ${active ? 'is-active' : ''} ${item.href === '/cloudflare' ? 'nav-primary' : ''}`}>
-            <Icon name={item.icon}/><span>{item.label}</span><Status value={item.status ? health[item.status] : undefined}/>
+            <Icon name={item.icon}/><span>{item.label}</span>{item.href === '/updates' && hasUpdate && <span className="nav-update-badge">有更新</span>}<Status value={item.status ? health[item.status] : undefined}/>
           </Link>
         })}</div></section>)}</nav>
       <button type="button" className="sidebar-collapse" onClick={toggleNavigation} aria-controls="panel-navigation" aria-expanded={!collapsed} disabled={!navigationReady}>收起管理导航</button>
@@ -105,11 +111,11 @@ export function Nav({ username }: { username: string }) {
       <div className="mobile-brand"><Link href="/"><img src="/icon.svg" alt="" className="brand-icon"/></Link><b>clover</b><span className="mobile-user">{username}</span><NavLogout/><button type="button" className="mobile-collapse" onClick={toggleNavigation} aria-controls="panel-mobile-navigation" aria-expanded={!collapsed} disabled={!navigationReady}>收起</button></div>
       <nav aria-label="主导航" className="mobile-nav">{GROUPS.map((group) => {
         const groupActive = group.links.some((item) => activeFor(item.href))
-        return <details key={group.title} className="mobile-nav-group" open={groupActive}><summary>{group.title}<span aria-hidden="true">⌄</span></summary>
+        return <details key={group.title} className="mobile-nav-group" open={groupActive}><summary>{group.title}{group.title === '高级设置' && hasUpdate && <span className="nav-update-dot" role="img" aria-label="有新版本可更新"/>}<span aria-hidden="true">⌄</span></summary>
           <div className="mobile-nav-items">{group.links.map((item) => {
             const active = activeFor(item.href)
             return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} className={`mobile-nav-link ${active ? 'is-active' : ''}`}>
-              <Icon name={item.icon}/>{item.label}<Status value={item.status ? health[item.status] : undefined}/>
+              <Icon name={item.icon}/>{item.label}{item.href === '/updates' && hasUpdate && <span className="nav-update-badge">有更新</span>}<Status value={item.status ? health[item.status] : undefined}/>
             </Link>
           })}</div></details>
       })}</nav>

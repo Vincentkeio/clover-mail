@@ -47,7 +47,7 @@ export async function GET() {
     projectDirectory().catch(() => ''),
   ])
   const digests = image ? await docker(['image', 'inspect', image, '--format', '{{json .RepoDigests}}']).catch(() => '[]') : '[]'
-  const localBuild = project ? await docker(['run', '--rm', '-v', `${project}:${project}:ro`, 'docker:cli', 'test', '-f', `${project}/.clover-local-build`]).then(() => true).catch(() => false) : false
+  const localBuild = project ? await docker(['exec', 'clover-certificate-helper', 'test', '-f', '/clover/.clover-local-build']).then(() => true).catch(() => false) : false
   const [os, architecture, cpus, memory, dockerVersion] = hostInfo.split('|')
   return NextResponse.json({
     panelHost: process.env.PANEL_HOSTNAME || process.env.PANEL_FQDN || '',
@@ -67,6 +67,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const action = String(body.action || '')
   if (!['restart', 'update', 'configure'].includes(action)) return NextResponse.json({ error: '操作无效' }, { status: 400 })
+  if (action === 'update' && body.confirm !== true) return NextResponse.json({ error: '更新需要手动确认。' }, { status: 400 })
   const existing = await jobState()
   if (existing.state === 'running' || existing.state === 'created') return NextResponse.json({ error: '已有维护任务正在运行' }, { status: 409 })
   let args: string[] = [action]
@@ -89,13 +90,15 @@ export async function POST(req: Request) {
   }
   try {
     const project = await projectDirectory()
-    if (existing.state !== 'idle') await docker(['rm', '-f', JOB])
+    // Never remove a running job if another request started it after our check.
+    if (existing.state !== 'idle') await docker(['rm', JOB])
     const id = await docker(['run', '-d', '--name', JOB,
       '-v', '/var/run/docker.sock:/var/run/docker.sock',
       '-v', `${project}:${project}`, '-w', project,
       'docker:cli', 'sh', './scripts/maintenance.sh', ...args], 30_000)
     await audit(admin.username, `system.${action}`, action === 'configure' ? `${args[1]},${args[2]}` : undefined, { job: id.slice(0, 12) })
-    const ticket = action === 'configure' ? issueMaintenanceTicket({ job: id, panelHost: args[1], mailHost: args[2], origin: origin || new URL(req.url).origin }) : undefined
+    const ticket = issueMaintenanceTicket({ job: id, action: action as 'configure' | 'update' | 'restart', panelHost: action === 'configure' ? args[1] : process.env.PANEL_HOSTNAME || process.env.PANEL_FQDN || '',
+      mailHost: action === 'configure' ? args[2] : process.env.MAIL_HOSTNAME || process.env.MAIL_FQDN || '', origin: origin || new URL(req.url).origin })
     return NextResponse.json({ ok: true, job: id.slice(0, 12), ticket, panelHost: action === 'configure' ? args[1] : undefined,
       message: action === 'configure' ? '正在应用域名配置，完成后将自动重新加载页面。' : '维护任务已启动。' }, { status: 202 })
   } catch (err) { return NextResponse.json({ error: err instanceof Error ? err.message : '无法启动维护任务' }, { status: 502 }) }

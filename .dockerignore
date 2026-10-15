@@ -11,6 +11,7 @@ work
 dist
 .workbuddy-ai
 .clover-compose-install.lock
+.clover-source-revision
 *.log
 **/*.pem
 **/*.key

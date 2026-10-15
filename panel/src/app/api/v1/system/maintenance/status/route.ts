@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const panel = JSON.parse(panelResult.stdout) as { Config: { Env: string[] }; State: { Health?: { Status: string } } }
     const environment = panel.Config.Env
     const configured = environment.includes('PANEL_HOSTNAME=' + ticket.panelHost) && environment.includes('MAIL_HOSTNAME=' + ticket.mailHost)
-    const ready = job.Status === 'exited' && job.ExitCode === 0 && configured && panel.State.Health?.Status === 'healthy'
+    const ready = job.Status === 'exited' && job.ExitCode === 0 && (ticket.action === 'update' || ticket.action === 'restart' || configured) && panel.State.Health?.Status === 'healthy'
     // Never expose job logs, container environment, or credentials to this endpoint.
     return Response.json({ state: job.Status, exitCode: job.Status === 'exited' ? job.ExitCode : null, ready, configured }, { headers })
   } catch {

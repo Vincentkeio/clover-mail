@@ -174,6 +174,14 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .domain-tab.is-active small { color:#52826a; }
 .domain-tab-panel { padding-top:15px; }
 .table-scroll { max-width:100%; overflow-x:auto; }
+.domain-list-table td { vertical-align:middle; }
+.domain-list-table .btn-link { display:inline-flex; align-items:center; justify-content:center; }
+.nav-update-badge { margin-left:auto; flex:0 0 auto; padding:2px 6px; border-radius:4px; background:#fff0d4; color:#8b550d; font-size:10px; font-weight:650; white-space:nowrap; }
+.mobile-nav-group summary .nav-update-dot { width:6px; height:6px; flex:0 0 6px; border-radius:50%; background:#a86813; }
+.update-version-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:16px; margin:16px 0; }
+.update-version-grid dt { color:var(--muted); font-size:12px; }
+.update-version-grid dd { margin:5px 0 0; overflow-wrap:anywhere; font-weight:600; }
+.update-task-status { display:flex; align-items:center; gap:9px; margin-top:14px; }
 .advanced-details { border:1px solid var(--line); border-radius:8px; background:#fff; }
 .certificate-heading { align-items:flex-start; justify-content:space-between; }
 .certificate-heading .hint { margin:6px 0 0; }

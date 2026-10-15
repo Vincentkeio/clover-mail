@@ -35,7 +35,7 @@ export default async function DomainsPage() {
         {rows.length === 0 ? (
           <p className="empty">还没有域名，先在上方添加第一个。</p>
         ) : (
-          <table className="grid">
+          <table className="grid domain-list-table">
             <thead>
               <tr>
                 <th>域名</th>

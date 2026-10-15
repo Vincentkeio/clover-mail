@@ -36,6 +36,7 @@ Thumbs.db
 .workbuddy-ai/
 work/
 .clover-compose-install.lock
+.clover-source-revision
 
 # 发布产物
 dist/

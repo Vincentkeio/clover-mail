@@ -208,7 +208,22 @@ export function diffAgainstExisting(
   return { posts, patches, deletes }
 }
 
-/** BIND zone 文件导出（粘到 CF Import and Export 手动导入用；DKIM 按 255 字符分片） */
+/** Quote DNS character strings by octet, including UTF-8 and zone metacharacters. */
+function quoteTxt(content: string): string {
+  const bytes = Buffer.from(content, 'utf8')
+  const chunks: string[] = []
+  for (let start = 0; start < bytes.length || start === 0; start += 255) {
+    let value = ''
+    for (const byte of bytes.subarray(start, start + 255)) {
+      value += byte === 34 || byte === 92 ? '\\' + String.fromCharCode(byte)
+        : byte < 32 || byte > 126 ? '\\' + String(byte).padStart(3, '0') : String.fromCharCode(byte)
+    }
+    chunks.push(`"${value}"`)
+  }
+  return chunks.join(' ')
+}
+
+/** BIND zone file; absolute names also support importing a subdomain into its parent zone. */
 export function exportBind(domain: string, specs: DnsRecordSpec[], defaultTtl = 300): string {
   const lines = [
     `; clover 邮局 DNS 导出 — ${domain}`,
@@ -220,25 +235,18 @@ export function exportBind(domain: string, specs: DnsRecordSpec[], defaultTtl = 
   ]
 
   for (const spec of specs) {
-    const name = spec.name === '@' ? '@' : spec.name
+    const name = absoluteName(domain, spec.name).replace(/\.$/, '') + '.'
     const ttl = spec.ttl || defaultTtl
-    if (spec.type === 'MX' || spec.type === 'SRV') {
-      lines.push(`${name}\t${ttl}\tIN\t${spec.type}\t${spec.priority ?? 10} ${spec.content}`)
-    } else if (spec.type === 'TXT' && spec.content.length > 255) {
-      // BIND 需要分片；CF API 不需要
-      const chunks: string[] = []
-      let rest = spec.content
-      while (rest.length > 255) {
-        chunks.push(rest.slice(0, 255))
-        rest = rest.slice(255)
-      }
-      chunks.push(rest)
-      const quoted = chunks.map((c) => `"${c}"`).join(' ')
-      lines.push(`${name}\t${ttl}\tIN\tTXT\t${quoted}`)
+    if (spec.type === 'MX') {
+      lines.push(`${name}\t${ttl}\tIN\tMX\t${spec.priority ?? 10} ${spec.content.replace(/\.$/, '')}.`)
+    } else if (spec.type === 'SRV') {
+      lines.push(`${name}\t${ttl}\tIN\tSRV\t${spec.priority ?? 10} ${spec.content.replace(/\.$/, '')}.`)
     } else if (spec.type === 'TXT') {
-      lines.push(`${name}\t${ttl}\tIN\tTXT\t"${spec.content}"`)
+      lines.push(`${name}\t${ttl}\tIN\tTXT\t${quoteTxt(spec.content)}`)
+    } else if (spec.type === 'CNAME') {
+      lines.push(`${name}\t${ttl}\tIN\tCNAME\t${spec.content.replace(/\.$/, '')}.`)
     } else {
-      lines.push(`${name}\t${ttl}\tIN\t${spec.type}\t${spec.content}`)
+      lines.push(`${name}\t${ttl}\tIN\t${spec.type}\t${spec.content}${spec.type === 'A' ? ' ; cf_tags=cf-proxied:false' : ''}`)
     }
     lines.push(`; ${spec.purpose}`)
     lines.push('')
@@ -246,13 +254,7 @@ export function exportBind(domain: string, specs: DnsRecordSpec[], defaultTtl = 
   return lines.join('\n')
 }
 
-/** 纯文本清单（兜底：发给域名商手工加记录） */
+/** TXT download is also a zone file, so both download buttons work with DNS imports. */
 export function exportPlain(domain: string, specs: DnsRecordSpec[]): string {
-  const lines = [`# clover 邮局 DNS 清单 — ${domain}`]
-  for (const spec of specs) {
-    const name = absoluteName(domain, spec.name)
-    const pri = spec.priority !== undefined ? `\t优先级 ${spec.priority}` : ''
-    lines.push(`${spec.type}\t${name}\t${spec.content}${pri}\t; ${spec.purpose}`)
-  }
-  return lines.join('\n')
+  return exportBind(domain, specs)
 }

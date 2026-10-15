@@ -1,7 +1,7 @@
 import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-type MaintenanceTicket = { job: string; panelHost: string; mailHost: string; origin: string; expires: number }
+type MaintenanceTicket = { job: string; panelHost: string; mailHost: string; origin: string; expires: number; action?: 'configure' | 'update' | 'restart' }
 const lifetime = 15 * 60_000
 
 function sign(payload: string) {
@@ -11,7 +11,7 @@ function sign(payload: string) {
 }
 
 export function issueMaintenanceTicket(details: Omit<MaintenanceTicket, 'expires'>) {
-  const payload = Buffer.from(JSON.stringify({ ...details, expires: Date.now() + lifetime })).toString('base64url')
+  const payload = Buffer.from(JSON.stringify({ ...details, expires: Date.now() + (details.action === 'update' ? 45 * 60_000 : lifetime) })).toString('base64url')
   return payload + '.' + sign(payload)
 }
 
