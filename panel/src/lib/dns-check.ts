@@ -14,11 +14,11 @@ const execFileAsync = promisify(execFile)
 
 type DoHAnswer = { name: string; type: number; TTL: number; data: string }
 
-export async function dohQuery(name: string, type: 'A' | 'TXT' | 'MX' | 'CNAME' | 'PTR'): Promise<DoHAnswer[]> {
-  const url = `https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${type}`
+async function queryResolver(endpoint: string, name: string, type: string): Promise<DoHAnswer[]> {
+  const url = `${endpoint}?name=${encodeURIComponent(name)}&type=${type}`
   let out: string
   try {
-    const r = await execFileAsync('curl', ['-s', '--max-time', '8', url], {
+    const r = await execFileAsync('curl', ['-fsS', '--max-time', '8', '-H', 'accept: application/dns-json', url], {
       timeout: 12000,
       maxBuffer: 1024 * 1024,
     })
@@ -32,35 +32,70 @@ export async function dohQuery(name: string, type: 'A' | 'TXT' | 'MX' | 'CNAME' 
   } catch {
     throw new Error('DNS 查询返回了非预期内容')
   }
-  if (data.Status !== 0) return [] // NXDOMAIN / SERVFAIL 等
+  if (data.Status === 3) return [] // NXDOMAIN is a missing name, not a network failure.
+  if (data.Status !== 0) throw new Error(`DNS 解析器查询失败（状态 ${data.Status}），请稍后重试`)
   return data.Answer ?? []
 }
 
-/** TXT 记录（自动拼接分片） */
+export async function dohQuery(name: string, type: 'A' | 'TXT' | 'MX' | 'CNAME' | 'PTR'): Promise<DoHAnswer[]> {
+  const recordType = { A: 1, TXT: 16, MX: 15, CNAME: 5, PTR: 12 }[type]
+  let answered = false
+  let failure: unknown
+  for (const endpoint of ['https://dns.google/resolve', 'https://cloudflare-dns.com/dns-query']) {
+    try {
+      const answers = await queryResolver(endpoint, name, type)
+      answered = true
+      if (answers.some((answer) => answer.type === recordType)) return answers
+    } catch (error) { failure = error }
+  }
+  if (answered) return []
+  throw failure instanceof Error ? failure : new Error('DNS 查询失败，请稍后重试')
+}
+
+/** Join character strings within one TXT RR, never across separate records. */
+function txtContent(data: string): string {
+  if (!data.startsWith('"')) return data
+  const strings = /"((?:\\[\s\S]|[^"\\])*)"/g
+  const chunks = [...data.matchAll(strings)]
+  if (!chunks.length || data.replace(strings, '').trim()) throw new Error('TXT 记录格式无效')
+  const bytes: number[] = []
+  for (const chunk of chunks) {
+    const value = chunk[1]
+    for (let i = 0; i < value.length;) {
+      if (value[i] === '\\') {
+        const decimal = value.slice(i + 1, i + 4)
+        if (/^\d{3}$/.test(decimal)) {
+          const byte = Number(decimal)
+          if (byte > 255) throw new Error('TXT 记录转义无效')
+          bytes.push(byte); i += 4; continue
+        }
+        i++
+      }
+      const character = String.fromCodePoint(value.codePointAt(i)!)
+      bytes.push(...Buffer.from(character, 'utf8')); i += character.length
+    }
+  }
+  return Buffer.from(bytes).toString('utf8')
+}
+
+/** TXT records remain independent regardless of resolver answer ordering. */
 export async function resolveTxt(name: string): Promise<string[]> {
   const answers = await dohQuery(name, 'TXT')
-  const byKey = new Map<string, string[]>()
-  for (const a of answers) {
-    const chunk = a.data.replace(/^"|"$/g, '')
-    const list = byKey.get(a.name) ?? []
-    list.push(chunk)
-    byKey.set(a.name, list)
-  }
-  return [...byKey.values()].map((chunks) => chunks.join(''))
+  return answers.filter((answer) => answer.type === 16).map((answer) => txtContent(answer.data))
 }
 
 export async function resolveA(name: string): Promise<string[]> {
-  return (await dohQuery(name, 'A')).map((a) => a.data)
+  return (await dohQuery(name, 'A')).filter((a) => a.type === 1).map((a) => a.data)
 }
 
 export async function resolvePtr(ip: string): Promise<string[]> {
   if (!isIPv4(ip.trim())) return []
   const reversed = ip.trim().split('.').reverse().join('.') + '.in-addr.arpa'
-  return (await dohQuery(reversed, 'PTR')).map((a) => a.data.replace(/\.$/, '').toLowerCase())
+  return (await dohQuery(reversed, 'PTR')).filter((a) => a.type === 12).map((a) => a.data.replace(/\.$/, '').toLowerCase())
 }
 
 export async function resolveMx(name: string): Promise<Array<{ priority: number; host: string }>> {
-  return (await dohQuery(name, 'MX')).map((a) => {
+  return (await dohQuery(name, 'MX')).filter((a) => a.type === 15).map((a) => {
     const [priority, host] = a.data.split(' ')
     return { priority: Number(priority), host }
   })
@@ -83,23 +118,22 @@ export async function runChecklist(opts: {
   dkimPublicKey?: string | null
 }): Promise<CheckItem[]> {
   const { domain, mailHostname, ownershipToken, vpsIp, dkimPublicKey } = opts
-  const results: CheckItem[] = []
+  const checks: Array<() => Promise<CheckItem>> = []
   const failures: string[] = []
-
-  const safe = async (fn: () => Promise<CheckItem>) => {
-    try {
-      results.push(await fn())
-    } catch (err) {
-      failures.push(err instanceof Error ? err.message : String(err))
-    }
+  const txtLookups = new Map<string, Promise<string[]>>()
+  const txtRecords = (name: string) => {
+    if (!txtLookups.has(name)) txtLookups.set(name, resolveTxt(name))
+    return txtLookups.get(name)!
   }
 
-  await safe(async () => {
-    const txts = await resolveTxt(domain)
+  const addCheck = (fn: () => Promise<CheckItem>) => { checks.push(fn) }
+
+  addCheck(async () => {
+    const txts = await txtRecords(domain)
     const hit = txts.some((t) => t.includes(ownershipToken))
     return { key: 'ownership', label: '归属 TXT', ok: hit, expected: ownershipToken, actual: txts.join(' | ') || '(空)' }
   })
-  await safe(async () => {
+  addCheck(async () => {
     const mxs = await resolveMx(domain)
     const hit = mxs.some((m) => m.host.replace(/\.$/, '').toLowerCase() === mailHostname.replace(/\.$/, '').toLowerCase())
     return {
@@ -110,20 +144,20 @@ export async function runChecklist(opts: {
       actual: mxs.map((m) => `${m.host}(${m.priority})`).join(' | ') || '(空)',
     }
   })
-  await safe(async () => {
+  addCheck(async () => {
     const ips = await resolveA(mailHostname)
     const hit = ips.includes(vpsIp)
     return { key: 'mail-a', label: 'mail A 记录', ok: hit, expected: vpsIp, actual: ips.join(' | ') || '(空)' }
   })
-  await safe(async () => {
-    const txts = await resolveTxt(domain)
+  addCheck(async () => {
+    const txts = await txtRecords(domain)
     const spf = txts.find((t) => t.startsWith('v=spf1'))
     const hit = !!spf && spf.includes(`ip4:${vpsIp}`)
     return { key: 'spf', label: 'SPF', ok: hit, expected: `v=spf1 … ip4:${vpsIp}`, actual: spf ?? '(空)' }
   })
   if (dkimPublicKey) {
-    await safe(async () => {
-      const txts = await resolveTxt(`mail._domainkey.${domain}`)
+    addCheck(async () => {
+      const txts = await txtRecords(`mail._domainkey.${domain}`)
       const hit = txts.some((t) => t.includes(dkimPublicKey.slice(0, 40)))
       return {
         key: 'dkim',
@@ -134,12 +168,17 @@ export async function runChecklist(opts: {
       }
     })
   }
-  await safe(async () => {
-    const txts = await resolveTxt(`_dmarc.${domain}`)
+  addCheck(async () => {
+    const txts = await txtRecords(`_dmarc.${domain}`)
     const dmarc = txts.find((t) => t.startsWith('v=DMARC1'))
     return { key: 'dmarc', label: 'DMARC', ok: !!dmarc, expected: 'v=DMARC1; …', actual: dmarc ?? '(空)' }
   })
 
+  const outcomes = await Promise.all(checks.map(async (check) => {
+    try { return await check() }
+    catch (error) { failures.push(error instanceof Error ? error.message : String(error)); return null }
+  }))
+  const results = outcomes.filter((item): item is CheckItem => item !== null)
   if (results.length === 0) {
     return [
       {

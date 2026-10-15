@@ -234,6 +234,7 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .detail-check-title { margin-top:20px; }
 .warning-copy { color:var(--warn); }
 .dns-panel-stack { display:grid; gap:13px; }
+.dns-panel-stack>* { min-width:0; }
 .dns-primary-panel { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px 26px; align-items:center; padding:23px; border-color:#cde7d8; background:#f2f8f4; }
 .dns-primary-copy h2 { margin:9px 0 5px; color:#18362a; font-size:19px; letter-spacing:-.025em; }
 .dns-primary-copy .hint { max-width:580px; margin:0; }
@@ -243,7 +244,10 @@ button:not(.primary):not(.danger):not(.link):hover,.btn-link:hover { background:
 .dns-primary-button { display:flex; min-height:46px; align-items:center; gap:13px; padding:0 17px; }
 .dns-primary-button span { font-size:17px; font-weight:400; }
 .dns-check-summary { grid-column:1/-1; padding-top:15px; border-top:1px solid #dfece3; }
-.dns-check-summary .section-title { margin-bottom:9px; }
+.dns-check-summary .section-title { margin-bottom:9px; flex-wrap:wrap; gap:10px; }
+.dns-check-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.dns-check-actions button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+.dns-check-summary .dns-check-time { margin:10px 0 0; font-size:11px; }
 .dns-check-summary h3 { margin:0; font-size:12px; }
 .checklist-row { display:flex; flex-wrap:wrap; gap:6px; }
 .dns-advanced>summary { min-height:45px; }
