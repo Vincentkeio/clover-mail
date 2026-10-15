@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import type { DnsblResult } from '@/lib/dnsbl'
 
-type DnsblResult = { zone: string; label: string; listed: boolean; detail?: string; error?: string }
 type HealthItem = { key: string; label: string; ok: boolean; detail: string }
 type Result = {
   ip: string | null
@@ -15,24 +15,29 @@ export default function DeliverabilityPage() {
   const [data, setData] = useState<Result | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [messageTone, setMessageTone] = useState<'ok' | 'warn' | 'err'>('ok')
 
   async function run() {
     setBusy(true)
     setMsg(null)
     try {
-      const res = await fetch('/api/v1/system/deliverability')
+      const res = await fetch('/api/v1/system/deliverability', { cache: 'no-store' })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
+        setMessageTone('err')
         setMsg(body.error ?? `失败（${res.status}）`)
         return
       }
       setData(body)
       const listed = body.dnsbl?.results?.filter((r: DnsblResult) => r.listed).length ?? 0
       const failed = body.health?.items?.filter((i: HealthItem) => !i.ok).length ?? 0
+      const uncertain = body.dnsbl?.results?.filter((r: DnsblResult) => r.error).length ?? 0
+      setMessageTone(listed || failed || uncertain ? 'warn' : 'ok')
       setMsg(
-        `体检完成：黑名单命中 ${listed} 家，域健康未过 ${failed} 项` +
-          (!body.dnsbl?.reachable ? '（黑名单查询网络不可达）' : ''),
+        `体检完成：黑名单命中 ${listed} 家，无法确定 ${uncertain} 家，域健康未过 ${failed} 项`,
       )
+    } catch (error) {
+      setMessageTone('err'); setMsg(error instanceof Error ? error.message : '体检查询失败，请重试。')
     } finally {
       setBusy(false)
     }
@@ -52,18 +57,18 @@ export default function DeliverabilityPage() {
         <button className="primary" onClick={run} disabled={busy} type="button">
           {busy ? '查询中…' : '开始体检'}
         </button>
-        {msg && <div className="msg ok" style={{ flexBasis: '100%' }}>{msg}</div>}
+        {msg && <div className={'msg ' + messageTone} role="status" style={{ flexBasis: '100%' }}>{msg}</div>}
       </div>
 
       <p className="hint">
-        黑名单用标准 DNSBL 协议查询（反转 IP + A 记录，127.0.0.2 表示命中），无需 MXToolbox key；
-        命中后去各 DNSBL 官网按指引移除。IP 取设置页的 VPS IP。
+        使用 DNSBL 查询并按名单的有效返回码判断。查询受限或失败表示本次无法确定，不计为命中，也不计为未命中。
+        IP 取设置页的 VPS IP；可到名单官网进一步核验。
       </p>
 
       {data?.dnsbl && (
         <section className="panel">
           <h2>IP 黑名单（{data.dnsbl.ip}）</h2>
-          <table className="grid">
+          <div className="table-scroll"><table className="grid">
             <thead>
               <tr>
                 <th>名单</th>
@@ -77,28 +82,29 @@ export default function DeliverabilityPage() {
                   <td>{r.label}</td>
                   <td>
                     {r.error ? (
-                      <span className="tag warn">查询失败</span>
+                      <span className="tag warn">{r.status === 'restricted' ? '查询受限' : '查询失败'}</span>
                     ) : r.listed ? (
                       <span className="tag err">已命中</span>
                     ) : (
-                      <span className="tag ok">干净</span>
+                      <span className="tag ok">未命中</span>
                     )}
                   </td>
-                  <td className="mono hint-text">{r.detail ?? r.error ?? '未收录'}</td>
+                  <td className="hint-text">{[r.detail, r.error].filter(Boolean).join('；') || '本次查询未命中'}{r.zone === 'zen.spamhaus.org' && r.error && <> <a href="https://check.spamhaus.org/" target="_blank" rel="noreferrer">官网核验 →</a></>}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           {listed.length === 0 && !data.dnsbl.results.some((r) => r.error) && (
-            <p className="msg ok">IP 在 5 家主流 DNSBL 均为干净。</p>
+            <p className="msg ok">本次查询的 {data.dnsbl.results.length} 家 DNSBL 均未命中。</p>
           )}
+          <p className="hint">DNSBL 结果不代表 Gmail 的信誉评分，也不能保证邮件进入收件箱。</p>
         </section>
       )}
 
       {data?.health && (
         <section className="panel">
           <h2>域健康（{data.health.domain}）</h2>
-          <table className="grid">
+          <div className="table-scroll"><table className="grid">
             <thead>
               <tr>
                 <th>检查项</th>
@@ -119,7 +125,7 @@ export default function DeliverabilityPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </section>
       )}
 

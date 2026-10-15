@@ -50,7 +50,7 @@
 | B3 | 四类规则 | 域详情 → 规则区 → 分别建 exact / prefix / nonuser / catchall | exact/nonuser/catchall → `dmsSynced: true`；**prefix → `prefixSynced: true`**（写入 DMS 的 pcre 表） |
 | B4 | 网页邮箱 | 左侧 **WebMail** → 选邮箱 | 免密进入全屏 Roundcube，能打开邮件列表和正文 |
 | B5 | 发信 | 用刚建的邮箱从 Roundcube 发给自己 | 收件箱收到，且邮件头有 `DKIM-Signature` |
-| B6 | 监控 | 左侧 **监控** 三页 | spam 统计有数（rspamd 11334）、队列/服务/日志可读、体检显示 DNSBL 五家结果 |
+| B6 | 监控 | 左侧 **监控** 三页 | spam 统计有数（rspamd 11334）、队列/服务/日志可读、体检显示当前 DNSBL 结果；受限/失败不算命中或未命中 |
 | B7 | 两步验证 | 设置 → TOTP → 扫码 → 填 6 位码 | 开启后登录需「密码 + 验证码」；关闭需当前码 |
 | B8 | Passkey | 设置 → Passkey → 添加 | 走系统指纹/面容；登录页出现「用 Passkey 登录」 |
 | B9 | 开放 API | 设置 → 生成 token → 用 curl 调 `/api/v1/domains` | 返回 JSON；吊销后立即 401 |

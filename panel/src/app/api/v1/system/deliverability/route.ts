@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * 投递体检：
- * ?ip=203.0.113.10（默认取设置里的 VPS IP）→ DNSBL 五家黑名单
+ * ?ip=203.0.113.10（默认取设置里的 VPS IP）→ 已配置的 DNSBL 名单
  * ?domain=example.com（默认第一个域）→ 域健康五项
  */
 export async function GET(req: Request) {

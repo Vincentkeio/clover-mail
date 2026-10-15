@@ -59,7 +59,7 @@ swaks --to <你的gmail> --server mail.<域名> --from boss@<域名> \
 
 - Gmail 收信 → 「显示原始信息」：SPF / DKIM / DMARC 三项均 PASS
 - [mail-tester.com](https://www.mail-tester.com) 打分：**目标 ≥ 9/10**
-- [MXToolbox](https://mxtoolbox.com/SuperTool.aspx) 查 IP 是否在黑名单（PBL/SORBS/Spamhaus）
+- [MXToolbox](https://mxtoolbox.com/SuperTool.aspx) 查 IP 是否在黑名单（Spamhaus ZEN/PBL 等；注意区分查询受限与真正命中）
 
 ## 6. 服务状态速查
 

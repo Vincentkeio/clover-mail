@@ -1,57 +1,69 @@
 /**
  * 投递体检（M3）。
- * 黑名单走 DNSBL 标准查询协议：反转 IP + DNSBL 域名做 A 记录查询（127.0.0.2 = 命中）。
- * 全部经 DoH（dns.google）完成，无需 MXToolbox API key；如需官方报告，
- * 可在设置页配 MXToolbox key 后扩展（TODO，不外放第三方 key 到无 key 降级路径之外）。
+ * DNSBL checks distinguish provider listing codes from query errors.
+ * Public DoH restrictions mean some results must remain unknown.
  */
 
+import { isIPv4 } from 'node:net'
 import { dohQuery, resolveA, resolveMx, resolveTxt } from './dns-check'
 
 export type DnsblResult = {
   zone: string
   label: string
   listed: boolean
+  status: 'listed' | 'not-listed' | 'restricted' | 'error'
   detail?: string
   error?: string
 }
 
-export const DNSBL_ZONES: Array<{ zone: string; label: string }> = [
-  { zone: 'zen.spamhaus.org', label: 'Spamhaus ZEN' },
-  { zone: 'b.barracudacentral.org', label: 'Barracuda' },
-  { zone: 'bl.spamcop.net', label: 'SpamCop' },
-  { zone: 'dnsbl.sorbs.net', label: 'SORBS' },
-  { zone: 'psbl.surriel.com', label: 'PSBL' },
+export const DNSBL_ZONES: Array<{ zone: string; label: string; codes: string[] }> = [
+  { zone: 'zen.spamhaus.org', label: 'Spamhaus ZEN', codes: ['127.0.0.2', '127.0.0.3', '127.0.0.4', '127.0.0.9', '127.0.0.10', '127.0.0.11'] },
+  { zone: 'b.barracudacentral.org', label: 'Barracuda', codes: ['127.0.0.2'] },
+  { zone: 'bl.spamcop.net', label: 'SpamCop', codes: ['127.0.0.2'] },
+  // SORBS retired its service in June 2024; an empty answer is no health check.
+  { zone: 'psbl.surriel.com', label: 'PSBL', codes: ['127.0.0.2'] },
 ]
 
 function reverseIp(ip: string): string | null {
   const parts = ip.trim().split('.')
-  if (parts.length !== 4 || parts.some((p) => !/^\d{1,3}$/.test(p))) return null
+  if (!isIPv4(ip.trim())) return null
   return [...parts].reverse().join('.')
 }
 
 /** 单 DNSBL 查询；网络错误与「未命中」区分开 */
 export async function checkDnsbl(ip: string, zone: string): Promise<DnsblResult> {
+  const definition = DNSBL_ZONES.find((item) => item.zone === zone)
+  const label = definition?.label ?? zone
   const reversed = reverseIp(ip)
   if (!reversed) {
-    return { zone, label: zone, listed: false, error: 'IP 格式不正确' }
+    return { zone, label, listed: false, status: 'error', error: 'IP 格式不正确' }
   }
+  if (!definition) return { zone, label, listed: false, status: 'error', error: '该 DNSBL 不在支持列表中' }
   try {
     const answers = await dohQuery(`${reversed}.${zone}`, 'A')
-    if (answers.length === 0) {
-      return { zone, label: zone, listed: false }
+    const codes = [...new Set(answers.filter((answer) => answer.type === 1).map((answer) => answer.data))]
+    const known = codes.filter((code) => definition.codes.includes(code))
+    if (known.length) {
+      return { zone, label, listed: true, status: 'listed', detail: `名单返回有效命中码：${known.join(', ')}` }
     }
-    const codes = answers.map((a) => a.data).join(',')
-    return { zone, label: zone, listed: true, detail: `返回 ${codes}（127.0.0.2/4 等表示命中）` }
+    if (codes.includes('127.255.255.254') || codes.includes('127.255.255.255')) {
+      return { zone, label, listed: false, status: 'restricted', detail: `返回 ${codes.join(', ')}`,
+        error: '名单限制公共解析器查询或请求频率；本次无法判断是否收录，请到名单官网核验。' }
+    }
+    if (codes.length) return { zone, label, listed: false, status: 'error', detail: `返回 ${codes.join(', ')}`,
+      error: codes.includes('127.255.255.252') ? 'DNSBL 查询名称配置错误，不能判断是否收录。' : '名单返回未识别的响应码，不能判断是否收录。' }
+    // Spamhaus can also return NXDOMAIN to blocked public resolvers. Since
+    // this application queries via public DoH, absence is not proof of clean IP.
+    if (zone === 'zen.spamhaus.org') return { zone, label, listed: false, status: 'restricted',
+      error: '公共解析器未返回可验证的 Spamhaus 结果；不能据此认定未收录，请到 Spamhaus 官网核验。' }
+    return { zone, label, listed: false, status: 'not-listed', detail: '本次查询未返回有效命中记录。' }
   } catch (err) {
-    return { zone, label: zone, listed: false, error: err instanceof Error ? err.message : String(err) }
+    return { zone, label, listed: false, status: 'error', error: err instanceof Error ? err.message : String(err) }
   }
 }
 
 export async function checkAllDnsbl(ip: string): Promise<{ ip: string; results: DnsblResult[]; reachable: boolean }> {
-  const results: DnsblResult[] = []
-  for (const { zone, label } of DNSBL_ZONES) {
-    results.push({ ...(await checkDnsbl(ip, zone)), label })
-  }
+  const results = await Promise.all(DNSBL_ZONES.map(({ zone }) => checkDnsbl(ip, zone)))
   return { ip, results, reachable: results.some((r) => !r.error) }
 }
 
