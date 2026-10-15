@@ -5,8 +5,9 @@ import { domains, mailboxes, routingRules } from '@/db/schema'
 import { getCurrentAdmin, unauthorized } from '@/lib/auth'
 import { audit } from '@/lib/audit'
 import { updateDomainSchema } from '@/lib/validators'
-import { syncDomainDelete } from '@/lib/sync'
+import { ruleAliasAddress, syncAliasDelete, syncDomainDelete, syncMailboxDelete } from '@/lib/sync'
 import { syncMailboxPolicies } from '@/lib/mailbox-policy-sync'
+import { syncPrefixRules } from '@/lib/prefix-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,7 +76,26 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
 
   const boxes = await db.select().from(mailboxes).where(eq(mailboxes.domainId, id))
   const rules = await db.select().from(routingRules).where(eq(routingRules.domainId, id))
-  if (boxes.length || rules.length) return NextResponse.json({ error: `请先删除 ${boxes.length} 个邮箱和 ${rules.length} 条转发规则，再删除域名。` }, { status: 409 })
+  for (const rule of rules) {
+    const address = rule.active ? ruleAliasAddress(rule.matchType, rule.matchValue, domain.name) : null
+    const destinations = JSON.parse(rule.targets) as string[]
+    if (address) {
+      for (const destination of destinations) {
+        const sync = await syncAliasDelete(address, destination)
+        if (!sync.ok) return NextResponse.json({ error: `转发规则 ${address} 清理失败，剩余记录已保留，请检查邮件服务后重试。` }, { status: 502 })
+      }
+    }
+    await db.delete(routingRules).where(eq(routingRules.id, rule.id))
+  }
+  if (rules.some((rule) => rule.matchType === 'prefix')) {
+    const prefix = await syncPrefixRules()
+    if (!prefix.ok) return NextResponse.json({ error: '前缀转发规则未能同步，域名及剩余邮箱已保留，请检查邮件服务后重试。' }, { status: 502 })
+  }
+  for (const box of boxes) {
+    const sync = await syncMailboxDelete(box.login)
+    if (!sync.ok) return NextResponse.json({ error: `邮箱 ${box.login} 清理失败，剩余记录已保留，请检查邮件服务后重试。` }, { status: 502 })
+    await db.delete(mailboxes).where(eq(mailboxes.id, box.id))
+  }
   const cleanup = await syncDomainDelete(domain.name)
   if (!cleanup.ok) return NextResponse.json({ error: '邮件服务清理失败，域名仍保留。' }, { status: 502 })
 

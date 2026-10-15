@@ -30,6 +30,7 @@ export default function DeleteButton({
       else router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '删除失败。')
+      router.refresh()
     } finally {
       setBusy(false)
     }

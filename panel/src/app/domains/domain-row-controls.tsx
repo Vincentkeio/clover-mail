@@ -47,11 +47,7 @@ export default function DomainRowControls({ id, name, active, mailboxCount, rule
 
   async function remove() {
     if (busy) return
-    if (mailboxCount || ruleCount) {
-      setError(`请先删除 ${mailboxCount} 个邮箱和 ${ruleCount} 条转发规则，再删除域名。`)
-      return
-    }
-    if (!window.confirm(`确定删除 ${name}？Cloudflare DNS 记录不会自动删除。此操作无法撤销。`)) return
+    if (!window.confirm(`确定删除 ${name}？将同时删除 ${mailboxCount} 个邮箱及其中的邮件数据、${ruleCount} 条转发规则。Cloudflare DNS 记录不会自动删除。此操作无法撤销。`)) return
     setBusy('delete')
     setError('')
     try {
@@ -60,6 +56,7 @@ export default function DomainRowControls({ id, name, active, mailboxCount, rule
       router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '删除失败。')
+      router.refresh()
     } finally {
       setBusy(null)
     }

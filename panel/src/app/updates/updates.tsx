@@ -7,6 +7,7 @@ type Maintenance = { maintenanceAvailable: boolean; job: { state: string; exitCo
 type Task = { ticket: string; action: 'update' | 'restart'; startedAt: number }
 const taskKey = 'clover-pending-maintenance'
 const formatDate = (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '—'
+const formatVersion = (value: string) => `v${value.replace(/\.0$/, '')}`
 
 export default function Updates() {
   const update = useUpdateStatus()
@@ -90,7 +91,7 @@ export default function Updates() {
     <section className="panel" aria-busy={update.checking}>
       <div className="section-title"><h2>版本更新</h2><span className={'tag ' + (result?.status === 'available' ? 'warn' : result?.status === 'latest' ? 'ok' : '')}>{update.checking ? '检查中' : result?.status === 'available' ? '有新版本' : result?.status === 'latest' ? '已是最新' : '等待检查'}</span></div>
       <p className="hint">{result?.message || '正在读取当前版本和发布信息。'}</p>
-      <dl className="update-version-grid"><div><dt>当前面板版本</dt><dd>{result ? `v${result.current.version}` : '—'}{result?.current.revision && <small className="hint"> · {result.current.revision.slice(0, 7)}</small>}</dd></div><div><dt>最新发布</dt><dd>{result?.latest.revision.slice(0, 7) || '—'}<small className="hint"> · {formatDate(result?.latest.createdAt || '')}</small></dd></div><div><dt>最近检查</dt><dd>{formatDate(update.checkedAt)}</dd></div></dl>
+      <dl className="update-version-grid"><div><dt>当前面板版本</dt><dd>{result ? formatVersion(result.current.version) : '—'}{result?.current.revision && <small className="hint"> · {result.current.revision.slice(0, 7)}</small>}</dd></div><div><dt>最新发布</dt><dd>{result?.latest.revision.slice(0, 7) || '—'}<small className="hint"> · {formatDate(result?.latest.createdAt || '')}</small></dd></div><div><dt>最近检查</dt><dd>{formatDate(update.checkedAt)}</dd></div></dl>
       {result?.upstream && <p className="hint">更新说明：<a href={result.upstream.url} target="_blank" rel="noreferrer">{result.upstream.message || result.upstream.shortSha}</a></p>}
       {update.error && <p className="msg err" role="alert">检查更新失败：{update.error} 可点击下方按钮重试。</p>}
       <div className="panel-maintenance-actions"><button type="button" disabled={update.checking || running || busy} onClick={() => void checkForUpdates(true)}>{update.checking ? '检查中…' : '检查更新'}</button><button type="button" className="primary" disabled={disabled || update.checking || !result || result.status === 'latest'} onClick={() => setConfirm('update')}>立即更新</button></div>

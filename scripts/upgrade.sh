@@ -220,13 +220,71 @@ export ROUNDCUBE_SSO_SECRET="$(sed -n 's/^ROUNDCUBE_SSO_SECRET=//p' .env)"
 # 普通升级仍必须使用 GHCR 发布镜像，避免在 VPS 上本地 npm ci 耗尽磁盘。
 COMPOSE_FILES=(-f compose.yaml)
 
+PANEL_PUBLISH_REVISION=""
+wait_for_panel_publish() {
+  local revision repo payload count status conclusion attempt commit_payload
+  revision="$(cat .clover-source-revision 2>/dev/null || true)"
+  [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || return 0
+  repo="${CLOVER_REPO:-Vincentkeio/clover-mail}"
+  local auth_args=()
+  [ -z "${CLOVER_TOKEN:-}" ] || auth_args=(-H "Authorization: Bearer ${CLOVER_TOKEN}")
+  for attempt in $(seq 1 36); do
+    payload="$(curl -fsSL --max-time 15 "${auth_args[@]}" \
+      "https://api.github.com/repos/${repo}/actions/workflows/publish-panel.yml/runs?head_sha=${revision}&per_page=1")" \
+      || { echo '无法查询面板镜像发布状态；为避免使用旧镜像，更新已停止。' >&2; return 1; }
+    count="$(printf '%s' "$payload" | grep -oE '"total_count"[[:space:]]*:[[:space:]]*[0-9]+' | head -n 1 | grep -oE '[0-9]+$' || true)"
+    [ -n "$count" ] || { echo '无法解析面板镜像发布状态；更新已停止。' >&2; return 1; }
+    if [ "$count" = 0 ]; then
+      if [ "$attempt" -lt 4 ]; then
+        [ "$attempt" -eq 1 ] && log '正在确认对应的面板镜像构建任务…'
+        sleep 10
+        continue
+      fi
+      commit_payload="$(curl -fsSL --max-time 15 "${auth_args[@]}" \
+        "https://api.github.com/repos/${repo}/commits/${revision}")" \
+        || { echo '无法确认本次源码变更范围；为避免使用旧镜像，更新已停止。' >&2; return 1; }
+      if printf '%s' "$commit_payload" | grep -qE '"filename"[[:space:]]*:[[:space:]]*"(panel/|\.github/workflows/publish-panel\.yml)'; then
+        echo '本次源码包含面板变更，但镜像构建任务尚未出现；更新已停止，请稍后重试。' >&2
+        return 1
+      fi
+      log "本次源码提交没有触发面板镜像发布，继续使用最新已发布镜像。"
+      return 0
+    fi
+    status="$(printf '%s' "$payload" | grep -oE '"status"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*"([^"]+)"$/\1/' || true)"
+    conclusion="$(printf '%s' "$payload" | grep -oE '"conclusion"[[:space:]]*:[[:space:]]*"[^"]+"' | head -n 1 | sed -E 's/.*"([^"]+)"$/\1/' || true)"
+    if [ "$status" = completed ]; then
+      [ "$conclusion" = success ] || { echo "面板镜像发布失败（${conclusion:-未知状态}）；更新已停止。" >&2; return 1; }
+      PANEL_PUBLISH_REVISION="$revision"
+      return 0
+    fi
+    [ "$attempt" -eq 1 ] && log '面板镜像仍在发布，等待对应版本完成…'
+    sleep 10
+  done
+  echo '等待面板镜像发布超时；更新已停止，稍后重试。' >&2
+  return 1
+}
+
 if [ "${CLOVER_UPDATE_TO_LATEST:-0}" = 1 ]; then
   set_env CLOVER_TAG latest
   export CLOVER_TAG=latest
 fi
 
+wait_for_panel_publish
 log "拉取 GHCR 面板镜像及邮件/Caddy 镜像…"
-docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy roundcube || {
+for attempt in $(seq 1 6); do
+  docker compose "${COMPOSE_FILES[@]}" pull panel || {
+    echo "面板镜像拉取失败；未重建或重启面板。" >&2
+    exit 1
+  }
+  [ -z "$PANEL_PUBLISH_REVISION" ] && break
+  panel_image="${CLOVER_PANEL_IMAGE:-ghcr.io/vincentkeio/clover-panel}:${CLOVER_TAG:-latest}"
+  image_revision="$(docker image inspect "$panel_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+  [ "$image_revision" = "$PANEL_PUBLISH_REVISION" ] && break
+  [ "$attempt" -eq 6 ] && { echo '镜像仓库仍返回旧版面板镜像；当前服务未重建，请稍后重试。' >&2; exit 1; }
+  log '镜像仓库尚未同步到本次源码版本，稍后重试拉取…'
+  sleep 10
+done
+docker compose "${COMPOSE_FILES[@]}" pull mail caddy roundcube || {
   echo "发布镜像拉取失败；未重建或重启面板。请检查 GHCR 网络后重试。" >&2
   exit 1
 }

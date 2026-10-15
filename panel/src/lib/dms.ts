@@ -145,7 +145,7 @@ export const domains = {
 export const emails = {
   add: (login: string, password: string) => setup(['email', 'add', login, password]),
   update: (login: string, password: string) => setup(['email', 'update', login, password]),
-  del: (login: string) => setup(['email', 'del', login]),
+  del: (login: string) => setup(['email', 'del', '-y', login]),
   list: () => setup(['email', 'list']),
 }
 
