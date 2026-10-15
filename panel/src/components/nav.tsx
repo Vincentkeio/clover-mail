@@ -102,7 +102,7 @@ export function Nav({ username }: { username: string }) {
         <Link href="/" className="brand-lockup" aria-label="Clover 首页"><img src="/icon.svg" alt="" className="brand-icon"/><span><b>clover</b><small>三叶草邮局</small></span></Link>
         <button type="button" className="nav-brand-toggle" onClick={toggleNavigation} aria-label={collapsed ? '展开管理导航' : '收起管理导航'} title={collapsed ? '展开管理导航' : '收起管理导航'} aria-controls="panel-navigation-menu" aria-expanded={!collapsed} disabled={!navigationReady}><Chevron/>{collapsed && hasUpdate && <span className="nav-edge-update" role="img" aria-label="有新版本可更新"/>}</button>
       </div>
-      <nav id="panel-navigation-menu" aria-label="主导航" className="sidebar-nav" inert={collapsed} aria-hidden={collapsed}>{GROUPS.map((group) => <section key={group.title} className="nav-group" style={{ flexGrow: group.links.length }}>
+      <nav id="panel-navigation-menu" aria-label="主导航" className="sidebar-nav" inert={collapsed} aria-hidden={collapsed}>{GROUPS.map((group) => <section key={group.title} className="nav-group">
         <h2 className="nav-heading">{group.title}</h2><div className="nav-items">{group.links.map((item) => {
           const active = activeFor(item.href)
           return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
