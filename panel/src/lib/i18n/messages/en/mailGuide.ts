@@ -1,0 +1,28 @@
+const mailGuide = {
+  title: 'Client setup guide (IMAP / POP3 / SMTP)',
+  hint: 'Once the mailbox is created, use these settings to send and receive mail in any mail client',
+  colPurpose: 'Purpose',
+  colServer: 'Server',
+  colPort: 'Port',
+  colEncryption: 'Encryption',
+  receive: 'Receive',
+  send: 'Send',
+  webmail: 'Webmail',
+  recommended: ' (recommended)',
+  alternate: ' (alternate)',
+  webmailTipLabel: 'About webmail',
+  webmailTip: 'Open the "WebMail" page in the panel sidebar and pick a mailbox to enter Roundcube without a password; authorization comes from the current Clover panel sign-in session.',
+  noteUsername: 'Username',
+  noteUsernameBody: ': enter the **full email address** (for example ',
+  noteUsernameMiddle: '), not just',
+  noteUsernameEnd: '. ',
+  notePassword: 'Password',
+  notePasswordBody: ': the one you set when creating the mailbox.',
+  noteDiffTitle: 'IMAP vs POP3',
+  noteDiffBody: ': IMAP keeps mail on the server and syncs across devices (recommended); POP3 downloads and removes mail from the server by default (with POP3, always tick "keep a copy on the server").',
+  noteTipsTitle: 'Three things to note',
+  noteTipsBody: ': (1) encryption must be enabled (never use plaintext ports); (2) sending must have "requires authentication" ticked; (3) the first connection shows an **untrusted certificate** warning (the certificate is self-signed) — choose "trust/continue"; the connection is still TLS-encrypted.',
+  noteLimits: 'The DMS maximum total message size follows the global mailbox settings; with the default 100 MB attachment limit the total message limit is about 150 MiB (space is reserved for MIME encoding). See "Mail → Mail settings" for protocol and content policies. If external mail does not arrive, first make sure inbound port 25 is open at the hosting provider.',
+}
+
+export default mailGuide

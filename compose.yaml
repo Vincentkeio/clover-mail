@@ -1,0 +1,158 @@
+# clover 三叶草邮局 — 单栈 compose（M0）
+# install.sh 生成 .env 后：docker compose up -d
+name: clover
+
+services:
+  installer:
+    profiles: [install]
+    image: docker:cli
+    working_dir: ${CLOVER_HOME:-/opt/clover}
+    environment:
+      - CLOVER_HOME=${CLOVER_HOME:-/opt/clover}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${CLOVER_HOME:-/opt/clover}:${CLOVER_HOME:-/opt/clover}
+      - /usr/local/bin:/host-bin
+    entrypoint: [sh, -c]
+    command: ["apk add --no-cache bash openssl util-linux && exec bash scripts/compose-install.sh"]
+
+  mail:
+    # DMS 版本策略：M0 先用 latest 跑通真机验收，验收通过后锁死具体 tag（见 docs/plan.md 风险表）
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: docker-mailserver
+    hostname: ${MAIL_HOSTNAME}
+    env_file: .env
+    environment:
+      # Rewriting the envelope sender is required for forwarding aliases to
+      # external recipients, otherwise the original sender's SPF can fail.
+      ENABLE_SRS: ${ENABLE_SRS:-1}
+    ports:
+      - "25:25"        # SMTP（外部 MX 入站投递）
+      - "465:465"      # SMTPS（客户端隐式 TLS 提交）
+      - "587:587"      # submission（客户端 STARTTLS 提交，推荐）
+      - "143:143"      # IMAP + STARTTLS
+      - "993:993"      # IMAPS（推荐）
+      - "110:110"      # POP3（需 .env 设 ENABLE_POP3=1）
+      - "995:995"      # POP3S
+      - "4190:4190"    # ManageSieve（需 ENABLE_MANAGESIEVE=1；全局邮箱设置控制账号登录）
+      - "127.0.0.1:11334:11334"  # 管理端口仅供本机诊断，不对公网开放
+    volumes:
+      - mail-data:/var/mail                         # 邮箱数据
+      - mail-state:/var/mail-state                  # rspamd/redis/fail2ban 状态
+      - mail-config:/tmp/docker-mailserver          # DMS 配置（账号/DKIM/证书/user-patches.sh）
+      # ⚠️ 不在此挂载 user-patches.sh：源文件不存在时 Docker 会建出**空目录**占位，
+      # 导致补丁静默失效。Roundcube 免密认证由面板生成并安装持久化补丁。
+    restart: unless-stopped
+    stop_grace_period: 1m
+    # DMS 镜像自带 HEALTHCHECK（dms-healthcheck）
+
+  panel:
+    # 发布版：直接拉 GHCR 镜像（多架构）。要本地构建：
+    #   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+    image: ${CLOVER_PANEL_IMAGE:-ghcr.io/vincentkeio/clover-panel}:${CLOVER_TAG:-latest}
+    container_name: clover-panel
+    env_file: .env
+    environment:
+      - DATABASE_PATH=/app/data/clover.db
+      - DMS_CONTAINER=docker-mailserver
+      - ROUNDCUBE_POLICY_PATH=/app/roundcube-policy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - panel-data:/app/data
+      - roundcube-policy:/app/roundcube-policy
+      # 面板经 docker exec 调 DMS 内部 setup CLI 落地账号（不裸写配置文件）
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    expose:
+      - "3000"
+    depends_on:
+      - mail
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  roundcube:
+    image: roundcube/roundcubemail:1.6.x-apache
+    container_name: clover-roundcube
+    environment:
+      - ROUNDCUBEMAIL_DB_TYPE=sqlite
+      - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mail
+      - ROUNDCUBEMAIL_DEFAULT_PORT=993
+      - ROUNDCUBEMAIL_SMTP_SERVER=tls://mail
+      - ROUNDCUBEMAIL_SMTP_PORT=587
+      - ROUNDCUBEMAIL_REQUEST_PATH=/webmail/
+      - ROUNDCUBEMAIL_SKIN=elastic
+      - ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE=100M
+      - CLOVER_SSO_SECRET=${ROUNDCUBE_SSO_SECRET}
+      - PHP_INI_SCAN_DIR=:/var/clover-policy
+    volumes:
+      - roundcube-db:/var/roundcube/db
+      - roundcube-policy:/var/clover-policy:ro
+      - ./deploy/roundcube/config:/var/roundcube/config:ro
+      - ./deploy/roundcube/plugins/clover_sso:/var/www/html/plugins/clover_sso:ro
+    expose:
+      - "80"
+    depends_on:
+      - panel
+      - mail
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/') === false ? 1 : 0);"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  caddy:
+    image: caddy:2
+    container_name: clover-caddy
+    ports:
+      # 共享宿主机 Nginx/Caddy 时绑定 loopback 内部端口，由宿主入口处理 TLS。
+      - "${CLOVER_CADDY_HTTP_PUBLISH:-80}:80"
+      - "${CLOVER_CADDY_HTTPS_PUBLISH:-443}:443"
+    environment:
+      - PANEL_HOSTNAME=${PANEL_HOSTNAME}
+      - ACME_EMAIL=${ACME_EMAIL}
+      - CLOVER_CADDY_SCHEME=${CLOVER_CADDY_SCHEME:-https}
+      - CLOVER_TLS_DIRECTIVE=${CLOVER_TLS_DIRECTIVE:-}
+    volumes:
+      # Mount the directory: git/archive updates replace files atomically, which
+      # leaves a single-file bind mount pointing at the previous file inode.
+      - ./caddy:/etc/caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - panel
+      - roundcube
+    restart: unless-stopped
+
+  certificate-helper:
+    build:
+      context: .
+      dockerfile: deploy/certificate-helper/Dockerfile
+    container_name: clover-certificate-helper
+    pid: host
+    network_mode: host
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      - CLOVER_HOME=${CLOVER_HOME:-/opt/clover}
+    volumes:
+      - ./:/clover
+      - /:/host:rw
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  mail-data:
+  mail-state:
+  mail-config:
+  panel-data:
+  roundcube-db:
+  roundcube-policy:
+  caddy-data:
+  caddy-config:

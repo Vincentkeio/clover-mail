@@ -1,0 +1,30 @@
+{
+  # ACME 账号（Let's Encrypt 到期通知）
+  email {$ACME_EMAIL}
+}
+
+# clover 入口
+{$CLOVER_CADDY_SCHEME}://{$PANEL_HOSTNAME} {
+  # TLS 模式：留空 = 默认 ACME 真证书；测试机可设 CLOVER_TLS_DIRECTIVE="tls internal" 用自签
+  {$CLOVER_TLS_DIRECTIVE}
+  encode zstd gzip
+  @privateRoundcube path /api/internal/roundcube/*
+  handle @privateRoundcube {
+    respond 404
+  }
+  # /webmail is the panel's mailbox selector; /webmail/ is native Roundcube.
+  @roundcube path /webmail/*
+  handle @roundcube {
+    uri strip_prefix /webmail
+    reverse_proxy roundcube:80
+  }
+  handle {
+    reverse_proxy panel:3000
+  }
+
+  # The raw controller has no Clover session guard. Statistics are available
+  # through the authenticated panel API; do not publish its admin interface.
+  handle /rspamd* {
+    respond 404
+  }
+}

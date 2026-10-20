@@ -1,0 +1,154 @@
+name: publish-panel
+
+# 构建并发布面板镜像到 GHCR。
+#
+# 平台策略（实测教训）：默认**只构建 linux/amd64** —— 绝大多数 VPS 是 amd64；
+# arm64 走 QEMU 模拟编译 better-sqlite3 原生模块，既慢又容易 OOM 被杀
+# （实测一次 3 分钟失败、一次 15 分钟仍未完）。
+# 需要 arm64 时在 Actions 页手动 Run workflow，platforms 选 amd64+arm64。
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'panel/**'
+      - '.github/workflows/publish-panel.yml'
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: '构建平台（arm64 走 QEMU 模拟，很慢，按需选）'
+        type: choice
+        default: 'linux/amd64'
+        options:
+          - 'linux/amd64'
+          - 'linux/amd64,linux/arm64'
+
+concurrency:
+  group: publish-panel-${{ github.ref }}
+  # 新推送取消同分支上排队/进行中的旧构建，避免浪费 runner 分钟
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/clover-panel
+  PLATFORMS: ${{ github.event.inputs.platforms || 'linux/amd64' }}
+
+jobs:
+  security:
+    if: github.event.deleted != true
+    uses: ./.github/workflows/security.yml
+  build:
+    if: github.event.deleted != true
+    needs: security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 读取数字版本号
+        id: version
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const version = require('./panel/package.json').version;
+          if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+            throw new Error('面板版本号必须为 major.minor.patch 格式');
+          }
+          if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v${version}`) {
+            throw new Error('发布标签必须与面板版本号一致');
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+
+      - name: Docker meta（生成标签）
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }},priority=1000
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+      - name: Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: QEMU（仅多架构时需要）
+        if: contains(env.PLATFORMS, 'arm64')
+        uses: docker/setup-qemu-action@v3
+
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建并推送
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./panel
+          file: ./panel/Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: 结果摘要
+        run: |
+          {
+            echo "### clover-panel 已发布"
+            echo ""
+            echo "- 平台：\`${{ env.PLATFORMS }}\`"
+            echo "- digest：\`${{ steps.build.outputs.digest }}\`"
+            echo "- 标签："
+            echo "\`\`\`"
+            echo "${{ steps.meta.outputs.tags }}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 确定 Release 版本
+        id: release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REF_NAME" = main ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            previous=""
+            if git cat-file -e "$BEFORE:panel/package.json" 2>/dev/null; then
+              previous="$(git show "$BEFORE:panel/package.json" | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { try { console.log(JSON.parse(s).version || "") } catch { console.log("") } })')"
+            fi
+            if [ "$VERSION" != "$previous" ]; then
+              echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: 发布 GitHub Release
+        if: steps.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG 已存在，跳过。"
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "三叶草邮局 $RELEASE_TAG" \
+              --notes-file "docs/releases/${RELEASE_TAG}.md" \
+              --target "$GITHUB_SHA"
+          fi

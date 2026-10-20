@@ -1,0 +1,28 @@
+const mailGuide = {
+  title: '客户端配置指引（IMAP / POP3 / SMTP）',
+  hint: '建好邮箱后按这里的参数在任意邮件客户端收发',
+  colPurpose: '用途',
+  colServer: '服务器',
+  colPort: '端口',
+  colEncryption: '加密方式',
+  receive: '收信',
+  send: '发信',
+  webmail: '网页收发',
+  recommended: '（推荐）',
+  alternate: '（备选）',
+  webmailTipLabel: '网页邮箱说明',
+  webmailTip: '面板左侧「WebMail」页选邮箱可免密进入 Roundcube，授权由当前 Clover 面板登录会话提供。',
+  noteUsername: '用户名',
+  noteUsernameBody: '：填**完整邮箱地址**（如 ',
+  noteUsernameMiddle: '），不是只写',
+  noteUsernameEnd: '；',
+  notePassword: '密码',
+  notePasswordBody: '：建邮箱时设的那个。',
+  noteDiffTitle: 'IMAP 与 POP3 的区别',
+  noteDiffBody: '：IMAP 在服务器保留邮件、多设备同步（推荐）； POP3 默认下载后从服务器删除（用 POP3 务必勾「在服务器保留副本」）。',
+  noteTipsTitle: '三点注意',
+  noteTipsBody: '：① 加密方式必须开启（别用明文端口）；② 发信必须勾选「需要认证」； ③ 首次连接会提示**证书不受信任**（当前为自签证书），选择「信任/继续」即可，连接本身仍是 TLS 加密的。',
+  noteLimits: 'DMS 邮件总大小上限按全局邮箱设置同步；默认附件上限 100 MB 时，邮件总上限约 150 MiB（已预留 MIME 编码空间）。协议和内容策略见「邮箱账户 → 全局邮箱设置」。收不到外部来信时先确认机房的入站 25 端口已放行。',
+}
+
+export default mailGuide

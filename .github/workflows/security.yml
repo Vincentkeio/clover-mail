@@ -1,0 +1,32 @@
+name: 安全回归检查
+on:
+  workflow_call:
+  push:
+    paths: ['panel/**', 'scripts/**', 'compose.yaml', 'caddy/**', '.github/workflows/security.yml']
+  pull_request:
+    paths: ['panel/**', 'scripts/**', 'compose.yaml', 'caddy/**', '.github/workflows/security.yml']
+permissions:
+  contents: read
+jobs:
+  security:
+    if: github.event.deleted != true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: panel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+      - run: npm ci
+      - run: npm run test:security
+      - run: npm run typecheck
+      - run: npm audit --omit=dev --audit-level=moderate
+      - name: 检查安装与管理脚本语法
+        run: |
+          for script in ../install.sh ../bootstrap.sh ../scripts/*.sh; do
+            bash -n "$script"
+          done
