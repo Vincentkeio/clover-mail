@@ -59,7 +59,7 @@ update_from_archive() {
   for item in "$src"/*; do
     name="$(basename "$item")"
     case "$name" in
-      .env|.env.bak.*|.env.before-*|backups) continue ;;
+      .env|.env.bak.*|.env.before-*|backups|.clover-managed-images) continue ;;
       .env.*)
         if [ "$name" != .env.example ]; then continue; fi
         rm -f "$name"
@@ -275,6 +275,20 @@ if [ "${CLOVER_UPDATE_TO_LATEST:-0}" = 1 ]; then
 fi
 
 wait_for_panel_publish
+image_manifest=".clover-managed-images"
+project_image_manifest() {
+  local image_ref image_id
+  while IFS= read -r image_ref; do
+    [ -n "$image_ref" ] || continue
+    image_id="$(docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null || true)"
+    [ -n "$image_id" ] && printf '%s\t%s\n' "$image_id" "$image_ref"
+  done < <(docker compose "${COMPOSE_FILES[@]}" config --images 2>/dev/null | sort -u)
+}
+previous_project_images="$(project_image_manifest || true)"
+if [ -f "$image_manifest" ]; then
+  previous_project_images="${previous_project_images}
+$(cat "$image_manifest")"
+fi
 log "拉取 GHCR 面板镜像及邮件/Caddy 镜像…"
 for attempt in $(seq 1 6); do
   docker compose "${COMPOSE_FILES[@]}" pull panel || {
@@ -298,7 +312,24 @@ log "重启面板（使用已发布镜像，不在 VPS 本地构建）…"
 docker compose "${COMPOSE_FILES[@]}" up -d --no-build panel
 
 log "重启其余服务（应用新镜像）…"
-docker compose build certificate-helper
+builder_name="clover-$(printf '%s' "$PWD" | sha256sum | cut -c1-12)"
+compose_build_help="$(docker compose build --help 2>/dev/null || true)"
+if docker buildx version >/dev/null 2>&1 && printf '%s' "$compose_build_help" | grep -q -- '--builder'; then
+  if ! docker buildx inspect "$builder_name" >/dev/null 2>&1; then
+    docker buildx create --name "$builder_name" --driver docker-container >/dev/null \
+      || warn "无法建立 Clover 专用构建器，将继续构建但不清理共享构建缓存。"
+  fi
+  if docker buildx inspect "$builder_name" >/dev/null 2>&1; then
+    docker compose "${COMPOSE_FILES[@]}" build --builder "$builder_name" certificate-helper
+    docker buildx prune --builder "$builder_name" --all --force \
+      || warn "Clover 专用构建缓存清理失败；其他项目缓存未触碰。"
+  else
+    docker compose "${COMPOSE_FILES[@]}" build certificate-helper
+  fi
+else
+  warn "当前 Docker 不支持 Clover 专用构建器；为保护其他项目，共享构建缓存不会被自动清理。"
+  docker compose "${COMPOSE_FILES[@]}" build certificate-helper
+fi
 docker compose up -d certificate-helper
 docker compose "${COMPOSE_FILES[@]}" up -d --no-build
 
@@ -329,31 +360,48 @@ if [ "${ok}" -eq 1 ]; then
   # gateway so both Git and archive upgrades use the current host files.
   docker compose "${COMPOSE_FILES[@]}" up -d --no-deps --no-build --force-recreate caddy
   rm -f .clover-local-build
-  log "清理未使用的 Docker 构建缓存…"
-  docker builder prune --all --force || warn "构建缓存清理失败；服务已健康运行，可稍后手动执行 docker builder prune -a。"
-  log "清理未使用的 Docker 镜像层…"
-  docker image prune --force || warn "悬空镜像清理失败；服务已健康运行，可稍后手动执行 docker image prune。"
-  # Tagged images are not dangling. Inspect every repository used by this
-  # Compose project and remove old image IDs only when no container references
-  # them (including stopped containers and other projects).
-  while IFS= read -r image_ref; do
-    [ -n "$image_ref" ] || continue
-    image_ref="${image_ref%%@*}"
-    image_component="${image_ref##*/}"
-    if [[ "$image_component" == *:* ]]; then
-      image_repo="${image_ref%:*}"
-    else
-      image_repo="$image_ref"
+  current_project_images="$(project_image_manifest || true)"
+  if [ -z "$current_project_images" ]; then
+    warn "无法枚举本项目镜像；已跳过旧镜像清理并保留已有归属记录。"
+  else
+  current_project_container_images="$(docker compose "${COMPOSE_FILES[@]}" ps --all -q \
+    | while IFS= read -r container_id; do
+        [ -n "$container_id" ] || continue
+        docker inspect --format '{{.Image}}' "$container_id" 2>/dev/null || true
+      done | sort -u)"
+  while IFS="$(printf '\t')" read -r image_id image_ref; do
+    [ -n "$image_id" ] && [ -n "$image_ref" ] || continue
+    printf '%s\n' "$current_project_container_images" | grep -Fxq "$image_id" && continue
+    if [ -n "$(docker ps -aq --filter "ancestor=${image_id}" 2>/dev/null || true)" ]; then
+      continue
     fi
-    while IFS= read -r image_id; do
-      [ -n "$image_id" ] || continue
-      if [ -n "$(docker ps -aq --filter "ancestor=${image_id}" 2>/dev/null || true)" ]; then
-        continue
+    image_tags="$(docker image ls --no-trunc --format '{{.Repository}}:{{.Tag}}' "$image_id" 2>/dev/null \
+      | grep -v '^<none>:<none>$' || true)"
+    safe_to_remove=1
+    while IFS= read -r image_tag; do
+      [ -n "$image_tag" ] || continue
+      if ! printf '%s\n%s\n' "$previous_project_images" "$current_project_images" \
+        | awk -F '\t' -v tag="$image_tag" '$2 == tag { found=1 } END { exit !found }'; then
+        safe_to_remove=0
+        break
       fi
+    done <<< "$image_tags"
+    [ "$safe_to_remove" -eq 1 ] || continue
+    if [ -n "$image_tags" ]; then
+      while IFS= read -r image_tag; do
+        [ -n "$image_tag" ] || continue
+        docker image rm "$image_tag" >/dev/null \
+          || warn "旧 Clover 镜像标签清理失败：${image_tag}"
+      done <<< "$image_tags"
+    else
       docker image rm "$image_id" >/dev/null \
-        || warn "未使用旧镜像清理失败：${image_id} (${image_repo})"
-    done < <(docker image ls --no-trunc --format '{{.ID}}' "$image_repo" 2>/dev/null | sort -u)
-  done < <(docker compose "${COMPOSE_FILES[@]}" config --images 2>/dev/null | sort -u)
+        || warn "旧 Clover 悬空镜像清理失败：${image_id}"
+    fi
+  done <<< "$previous_project_images"
+  manifest_tmp="${image_manifest}.tmp"
+  printf '%s\n' "$current_project_images" > "$manifest_tmp"
+  mv -f -- "$manifest_tmp" "$image_manifest"
+  fi
   log "升级完成，面板与 Roundcube 免密连接已就绪。查看状态：docker compose ps"
   log "迁移日志：docker logs clover-panel | grep migrations"
 else

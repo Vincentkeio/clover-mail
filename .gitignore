@@ -37,6 +37,7 @@ Thumbs.db
 work/
 .clover-compose-install.lock
 .clover-source-revision
+.clover-managed-images
 
 # 发布产物
 dist/
