@@ -201,6 +201,10 @@ if [ "${NO_PULL}" -eq 0 ]; then
   else
     update_from_archive
   fi
+  # Reopen the new implementation in the same update. --no-pull prevents loops;
+  # a new complete backup also applies refreshed retention to legacy backups.
+  log "源码已同步，切换到新版升级脚本…"
+  exec bash scripts/upgrade.sh --no-pull
 fi
 
 # The maintenance entry point is mounted into the dashboard's docker:cli job.
@@ -275,20 +279,6 @@ if [ "${CLOVER_UPDATE_TO_LATEST:-0}" = 1 ]; then
 fi
 
 wait_for_panel_publish
-image_manifest=".clover-managed-images"
-project_image_manifest() {
-  local image_ref image_id
-  while IFS= read -r image_ref; do
-    [ -n "$image_ref" ] || continue
-    image_id="$(docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null || true)"
-    [ -n "$image_id" ] && printf '%s\t%s\n' "$image_id" "$image_ref"
-  done < <(docker compose "${COMPOSE_FILES[@]}" config --images 2>/dev/null | sort -u)
-}
-previous_project_images="$(project_image_manifest || true)"
-if [ -f "$image_manifest" ]; then
-  previous_project_images="${previous_project_images}
-$(cat "$image_manifest")"
-fi
 log "拉取 GHCR 面板镜像及邮件/Caddy 镜像…"
 for attempt in $(seq 1 6); do
   docker compose "${COMPOSE_FILES[@]}" pull panel || {
@@ -360,48 +350,6 @@ if [ "${ok}" -eq 1 ]; then
   # gateway so both Git and archive upgrades use the current host files.
   docker compose "${COMPOSE_FILES[@]}" up -d --no-deps --no-build --force-recreate caddy
   rm -f .clover-local-build
-  current_project_images="$(project_image_manifest || true)"
-  if [ -z "$current_project_images" ]; then
-    warn "无法枚举本项目镜像；已跳过旧镜像清理并保留已有归属记录。"
-  else
-  current_project_container_images="$(docker compose "${COMPOSE_FILES[@]}" ps --all -q \
-    | while IFS= read -r container_id; do
-        [ -n "$container_id" ] || continue
-        docker inspect --format '{{.Image}}' "$container_id" 2>/dev/null || true
-      done | sort -u)"
-  while IFS="$(printf '\t')" read -r image_id image_ref; do
-    [ -n "$image_id" ] && [ -n "$image_ref" ] || continue
-    printf '%s\n' "$current_project_container_images" | grep -Fxq "$image_id" && continue
-    if [ -n "$(docker ps -aq --filter "ancestor=${image_id}" 2>/dev/null || true)" ]; then
-      continue
-    fi
-    image_tags="$(docker image ls --no-trunc --format '{{.Repository}}:{{.Tag}}' "$image_id" 2>/dev/null \
-      | grep -v '^<none>:<none>$' || true)"
-    safe_to_remove=1
-    while IFS= read -r image_tag; do
-      [ -n "$image_tag" ] || continue
-      if ! printf '%s\n%s\n' "$previous_project_images" "$current_project_images" \
-        | awk -F '\t' -v tag="$image_tag" '$2 == tag { found=1 } END { exit !found }'; then
-        safe_to_remove=0
-        break
-      fi
-    done <<< "$image_tags"
-    [ "$safe_to_remove" -eq 1 ] || continue
-    if [ -n "$image_tags" ]; then
-      while IFS= read -r image_tag; do
-        [ -n "$image_tag" ] || continue
-        docker image rm "$image_tag" >/dev/null \
-          || warn "旧 Clover 镜像标签清理失败：${image_tag}"
-      done <<< "$image_tags"
-    else
-      docker image rm "$image_id" >/dev/null \
-        || warn "旧 Clover 悬空镜像清理失败：${image_id}"
-    fi
-  done <<< "$previous_project_images"
-  manifest_tmp="${image_manifest}.tmp"
-  printf '%s\n' "$current_project_images" > "$manifest_tmp"
-  mv -f -- "$manifest_tmp" "$image_manifest"
-  fi
   log "升级完成，面板与 Roundcube 免密连接已就绪。查看状态：docker compose ps"
   log "迁移日志：docker logs clover-panel | grep migrations"
 else

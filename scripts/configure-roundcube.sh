@@ -17,3 +17,9 @@ fetch("http://127.0.0.1:3000/api/internal/roundcube/bootstrap", {
   console.log(data.state === "awaiting-mailbox" ? "Roundcube 已就绪；创建邮箱后首次打开会自动配置免密认证。" : "Roundcube 免密认证与全局设置已同步。");
 }).catch(error => { console.error(error.message); process.exit(1); });
 '
+# Legacy updaters reopen this file after source refresh and panel health. Keep
+# the migration here so the very first update runs the refreshed cleanup code.
+if [ -f scripts/project-maintenance.sh ]; then
+  bash scripts/project-maintenance.sh finish \
+    || echo '警告：Clover 更新后空间清理未完成；服务已更新，旧数据保留。' >&2
+fi

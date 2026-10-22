@@ -1,4 +1,5 @@
 FROM python:3.12-slim
+LABEL org.opencontainers.image.source="https://github.com/Vincentkeio/clover-mail" io.clover.role="certificate-helper"
 RUN apt-get update \
  && if apt-cache show docker-cli >/dev/null 2>&1; then DOCKER_CLI_PACKAGE=docker-cli; else DOCKER_CLI_PACKAGE=docker.io; fi \
  && if apt-cache show docker-compose-plugin >/dev/null 2>&1; then COMPOSE_PACKAGE=docker-compose-plugin; else COMPOSE_PACKAGE=docker-compose; fi \

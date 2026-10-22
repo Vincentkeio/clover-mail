@@ -31,6 +31,8 @@ Thumbs.db
 
 # TypeScript 增量构建产物
 *.tsbuildinfo
+__pycache__/
+*.pyc
 
 # 助手内部状态（本地笔记，不发布）
 .workbuddy-ai/

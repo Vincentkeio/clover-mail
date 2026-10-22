@@ -25,6 +25,8 @@ jobs:
       - run: npm run test:security
       - run: npm run typecheck
       - run: npm audit --audit-level=moderate
+      - name: 检查项目清理边界
+        run: python3 -m unittest discover -s ../tests -p 'test_*.py'
       - name: 检查安装与管理脚本语法
         run: |
           for script in ../install.sh ../bootstrap.sh ../scripts/*.sh; do

@@ -7,6 +7,12 @@ SOURCE="${CLOVER_HOME}/scripts/clover.sh"
 
 [ "$(id -u)" -eq 0 ] || { echo "安装 clover 命令需要 root 权限。" >&2; exit 1; }
 [ -f "$SOURCE" ] || { echo "找不到 Clover 管理脚本：$SOURCE" >&2; exit 1; }
+# This helper is freshly opened even by pre-2.0.10 updaters. Capture container
+# image IDs before their pull replaces upstream tags. Do this before Caddy reload.
+if [ -f "$CLOVER_HOME/scripts/project-maintenance.sh" ]; then
+  bash "$CLOVER_HOME/scripts/project-maintenance.sh" capture \
+    || echo '警告：无法记录 Clover 镜像归属；归属不明的镜像将保留。' >&2
+fi
 # Older upgrade scripts invoke this refreshed helper after pulling new sources.
 # Prepare the new service's key and routing before their deployment step runs.
 if [ -f "$CLOVER_HOME/.env" ] && [ -f "$CLOVER_HOME/scripts/ensure-roundcube-env.sh" ]; then
