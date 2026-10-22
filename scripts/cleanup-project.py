@@ -57,6 +57,20 @@ def image_records(project):
     return [{'id': c['Image'], 'ref': normalize_ref(c['Config']['Image'])} for c in project]
 
 
+def compose_image_records(project):
+    refs = docker('compose', '--project-directory', str(project), '-f', str(project / 'compose.yaml'),
+                  'config', '--images', optional=True).splitlines()
+    records = []
+    for ref in sorted(set(refs)):
+        if not ref or ref.startswith('-'):
+            continue
+        raw = docker('image', 'inspect', ref, optional=True)
+        if raw:
+            for image in json.loads(raw):
+                records.append({'id': image['Id'], 'ref': normalize_ref(ref)})
+    return merge_records(records)
+
+
 def merge_records(*groups):
     return [dict(id=image_id, ref=ref) for image_id, ref in sorted({
         (r.get('id', ''), r.get('ref', '')) for group in groups for r in group
@@ -186,7 +200,8 @@ def main():
     if args.action == 'pending':
         return 0 if state.get('pending') else 2
     if args.action == 'capture':
-        state['images'] = merge_records(state['images'], old_manifest(project), image_records(active))
+        state['images'] = merge_records(state['images'], old_manifest(project), image_records(active),
+                                       compose_image_records(project))
         state['pending'] = True
         write_state(project, state)
         print('[cleanup] 已记录更新前的 Clover 镜像归属。')

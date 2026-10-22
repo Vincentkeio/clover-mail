@@ -50,6 +50,13 @@ class CleanupSafetyTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             cleanup.project_containers([other], '/opt/clover')
 
+    def test_capture_includes_compose_tags_before_pull_even_when_not_in_a_container(self):
+        import json
+        old = image('a', ['roundcube/roundcubemail:1.6.x-apache'])
+        with patch.object(cleanup, 'docker', side_effect=['roundcube/roundcubemail:1.6.x-apache', json.dumps([old])]):
+            self.assertEqual(cleanup.compose_image_records(Path('/opt/clover')),
+                             [{'id': old['Id'], 'ref': 'roundcube/roundcubemail:1.6.x-apache'}])
+
     def test_cache_cleanup_is_id_scoped_private_immutable_and_clover_specific(self):
         valid = {'ID': 'a' * 25, 'Description': '[4/5] COPY scripts/certificates.py /app/certificates.py',
                  'Shared': False, 'Mutable': False, 'Reclaimable': True}
