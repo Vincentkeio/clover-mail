@@ -18,6 +18,8 @@ import { Readable } from 'node:stream'
 import { spawn } from 'node:child_process'
 import { getTranslator } from '@/lib/i18n/server'
 import type { Translator } from '@/lib/i18n/translate'
+import { hasTrustedOrigin } from '@/lib/request-origin'
+import { readLimitedFormData } from '@/lib/upload'
 
 const execFileAsync = promisify(execFile)
 
@@ -211,12 +213,12 @@ export async function POST(req: Request) {
   const admin = await getCurrentAdmin()
   if (!admin) return unauthorized()
   const t = await getTranslator()
-  const origin = req.headers.get('origin')
-  const requestHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || new URL(req.url).host
-  if (origin && new URL(origin).host !== requestHost) return NextResponse.json({ error: t('apiSystem.backup.badOrigin') }, { status: 403 })
+  if (!hasTrustedOrigin(req.headers, req.url)) return NextResponse.json({ error: t('apiSystem.backup.badOrigin') }, { status: 403 })
   const what = new URL(req.url).searchParams.get('what')
   if (what !== 'db' && what !== 'dms-config') return NextResponse.json({ error: t('apiSystem.backup.whatUnsupported') }, { status: 400 })
-  const form = await req.formData().catch(() => null)
+  const maxBytes = what === 'db' ? MAX_DATABASE_IMPORT_BYTES : MAX_CONFIG_IMPORT_BYTES
+  const { form, tooLarge } = await readLimitedFormData(req, maxBytes + 1024 * 1024)
+  if (tooLarge) return NextResponse.json({ error: what === 'db' ? t('apiSystem.backup.invalidDbFile', { max: '64 MiB' }) : t('apiSystem.backup.invalidConfigFile', { max: '128 MiB' }) }, { status: 413 })
   const file = form?.get('file')
   if (!(file instanceof File)) return NextResponse.json({ error: t('apiSystem.backup.fileMissing') }, { status: 400 })
   return what === 'db' ? importDatabase(file, admin, t) : importDmsConfig(file, admin, t)

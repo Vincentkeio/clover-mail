@@ -11,6 +11,7 @@ import { getCurrentAdmin, unauthorized } from '@/lib/auth'
 import { audit } from '@/lib/audit'
 import { config } from '@/lib/config'
 import { getTranslator } from '@/lib/i18n/server'
+import { hasTrustedOrigin } from '@/lib/request-origin'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,9 +42,7 @@ export async function POST(req: Request) {
   const admin = await getCurrentAdmin()
   if (!admin) return unauthorized()
   const t = await getTranslator()
-  const origin = req.headers.get('origin')
-  const requestHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || new URL(req.url).host
-  if (origin && new URL(origin).host !== requestHost) return NextResponse.json({ error: t('apiSystem.migration.badOrigin') }, { status: 403 })
+  if (!hasTrustedOrigin(req.headers, req.url)) return NextResponse.json({ error: t('apiSystem.migration.badOrigin') }, { status: 403 })
   if (req.headers.get('x-clover-confirm') !== 'RESTORE') return NextResponse.json({ error: t('apiSystem.migration.confirmRequired') }, { status: 400 })
   const encodedPassphrase = req.headers.get('x-clover-migration-passphrase') ?? ''
   let passphrase = ''

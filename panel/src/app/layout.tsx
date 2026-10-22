@@ -5,6 +5,7 @@ import { LocaleProvider } from '@/lib/i18n/client';
 import { HTML_LANG } from '@/lib/i18n/config';
 import { getI18n } from '@/lib/i18n/server';
 import './globals.css';
+import './interface.css';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();

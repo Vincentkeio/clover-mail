@@ -5,13 +5,15 @@ import { db } from '@/db'
 import { admins } from '@/db/schema'
 import { verifyPassword } from '@/lib/password'
 import { createSessionToken, sessionCookie } from '@/lib/session'
-import { verifyTotp } from '@/lib/totp'
+import { consumeAdminTotp } from '@/lib/admin-totp'
+import { hasTrustedOrigin } from '@/lib/request-origin'
 import { audit } from '@/lib/audit'
 import { clearLoginAttempts, limitLogin } from '@/lib/login-rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
+  if (!hasTrustedOrigin(req.headers, req.url)) return NextResponse.json({ error: 'invalid_origin' }, { status: 403 })
   const body = await req.json().catch(() => null)
   const username = String(body?.username ?? '').trim()
   const password = String(body?.password ?? '')
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
     if (!totp) {
       return NextResponse.json({ error: 'totp_required' }, { status: 401 })
     }
-    if (!verifyTotp(admin.username, admin.totpSecret, totp)) {
+    if (!consumeAdminTotp({ ...admin, totpSecret: admin.totpSecret }, totp)) {
       await audit(admin.username, 'auth.totp_failed')
       return NextResponse.json({ error: 'invalid_totp' }, { status: 401 })
     }

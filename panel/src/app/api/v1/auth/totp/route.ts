@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
-import { db } from '@/db'
+import { db, sqlite } from '@/db'
 import { admins } from '@/db/schema'
 import { getCurrentAdmin, unauthorized } from '@/lib/auth'
 import { audit } from '@/lib/audit'
-import { newTotpSecret, totpQrDataUrl, totpUri, verifyTotp } from '@/lib/totp'
+import { newTotpSecret, totpQrDataUrl, totpUri, totpStep } from '@/lib/totp'
+import { consumeAdminTotp } from '@/lib/admin-totp'
+import { clearLoginAttempts, limitLogin } from '@/lib/login-rate-limit'
 import { getTranslator } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
@@ -44,11 +46,14 @@ export async function PUT(req: Request) {
 
   const [row] = await db.select().from(admins).where(eq(admins.id, admin.id)).limit(1)
   if (!row) return NextResponse.json({ error: t('apiAuth.adminNotFound') }, { status: 404 })
-  if (!verifyTotp(row.username, secret, code)) {
+  if (row.totpSecret) return NextResponse.json({ error: t('apiAuth.totp.alreadyEnabled') }, { status: 409 })
+  const step = totpStep(row.username, secret, code)
+  if (step === null) {
     return NextResponse.json({ error: t('apiAuth.totp.codeStale') }, { status: 400 })
   }
 
-  await db.update(admins).set({ totpSecret: secret }).where(eq(admins.id, admin.id))
+  const updated = sqlite.prepare('UPDATE admins SET totp_secret = ?, totp_last_used_step = ? WHERE id = ? AND totp_secret IS NULL').run(secret, step, admin.id)
+  if (updated.changes !== 1) return NextResponse.json({ error: t('apiAuth.totp.alreadyEnabled') }, { status: 409 })
   await audit(admin.username, 'auth.totp_enabled')
   return NextResponse.json({ ok: true })
 }
@@ -64,11 +69,14 @@ export async function DELETE(req: Request) {
 
   const [row] = await db.select().from(admins).where(eq(admins.id, admin.id)).limit(1)
   if (!row?.totpSecret) return NextResponse.json({ error: t('apiAuth.totp.notEnabled') }, { status: 400 })
-  if (!verifyTotp(row.username, row.totpSecret, code)) {
+  const subject = `totp-disable:${admin.id}`
+  const limited = limitLogin(subject)
+  if (limited) return limited
+  if (!consumeAdminTotp({ ...row, totpSecret: row.totpSecret }, code, true)) {
     return NextResponse.json({ error: t('apiAuth.totp.codeInvalid') }, { status: 400 })
   }
 
-  await db.update(admins).set({ totpSecret: null }).where(eq(admins.id, admin.id))
+  clearLoginAttempts(subject)
   await audit(admin.username, 'auth.totp_disabled')
   return NextResponse.json({ ok: true })
 }

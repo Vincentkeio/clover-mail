@@ -30,6 +30,7 @@ const apiAuth = {
 
   // Mailboxes (/api/v1/mailboxes/[id])
   'mailboxes.notFound': 'Mailbox not found',
+  'mailboxes.serviceCreateFailed': 'The mail service could not create the mailbox. Its panel entry was removed; check the service status and retry.',
   'mailboxes.serviceUpdateFailed': 'The mail service could not apply the change. Check its status and retry; the panel has not marked the change as complete.',
   'mailboxes.serviceDeleteFailed': 'The mail service could not delete the mailbox. Its panel entry has been kept so you can retry.',
   'mailboxes.settingsSyncFailed': 'Mailbox settings were saved, but applying them to the mail service failed: {error}',

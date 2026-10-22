@@ -36,6 +36,13 @@
       "when": 1792493563515,
       "tag": "0004_wise_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792676247070,
+      "tag": "0005_square_quasar",
+      "breakpoints": true
     }
   ]
 }

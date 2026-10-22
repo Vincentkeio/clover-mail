@@ -2,9 +2,9 @@ name: 安全回归检查
 on:
   workflow_call:
   push:
-    paths: ['panel/**', 'scripts/**', 'compose.yaml', 'caddy/**', '.github/workflows/security.yml']
+    paths: ['panel/**', 'scripts/**', 'deploy/**', 'install.sh', 'bootstrap.sh', 'compose*.yaml', 'caddy/**', '.github/workflows/security.yml']
   pull_request:
-    paths: ['panel/**', 'scripts/**', 'compose.yaml', 'caddy/**', '.github/workflows/security.yml']
+    paths: ['panel/**', 'scripts/**', 'deploy/**', 'install.sh', 'bootstrap.sh', 'compose*.yaml', 'caddy/**', '.github/workflows/security.yml']
 permissions:
   contents: read
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run test:security
       - run: npm run typecheck
-      - run: npm audit --omit=dev --audit-level=moderate
+      - run: npm audit --audit-level=moderate
       - name: 检查安装与管理脚本语法
         run: |
           for script in ../install.sh ../bootstrap.sh ../scripts/*.sh; do

@@ -54,6 +54,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
     const sync = await syncMailboxCreate(login, password, quotaMb)
     const mailboxCreatedInDms = sync.results[0]?.ok ?? false
+    if (!mailboxCreatedInDms) {
+      await db.delete(mailboxes).where(eq(mailboxes.id, row.id))
+      await audit(admin.username, 'mailbox.create_failed', login)
+      return NextResponse.json({ error: t('apiAuth.mailboxes.serviceCreateFailed') }, { status: 502 })
+    }
     const listeners = mailboxCreatedInDms ? await ensureMailListeners() : null
     const policySync = await syncMailboxPolicies()
     await audit(admin.username, 'mailbox.create', login, {

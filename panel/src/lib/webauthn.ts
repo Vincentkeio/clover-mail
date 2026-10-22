@@ -1,12 +1,14 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { cookies } from 'next/headers'
+import { sqlite } from '@/db'
+import { credentialVersion } from './session'
 import { DEFAULT_LOCALE } from './i18n/config'
 import { createTranslator, type Translator } from './i18n/translate'
 
 /**
  * WebAuthn（Passkey）公共设施：
  * - RP 参数从请求头推导（panel 域名），可用环境变量覆盖（真机多域名/反代场景）
- * - challenge 不落库：HMAC 签名的短时 cookie（120s）承载，防篡改
+ * - challenge 落库，短时随机 cookie（120s）定位；数据库原子消费防重放
  * - 凭据存 admins.webauthn_credentials（JSON 数组），容量极小、无需单表
  */
 
@@ -27,15 +29,8 @@ export type StoredCredential = {
 const CHALLENGE_COOKIE = 'clover_wa_challenge'
 const CHALLENGE_TTL_MS = 120_000
 
-function secret(): string {
-  const s = process.env.SESSION_SECRET
-  if (!s || s.length < 16) throw new Error('SESSION_SECRET 未设置或过短，无法进行 WebAuthn 校验')
-  return s
-}
-
-function sign(payload: string): string {
-  return createHmac('sha256', secret()).update(payload).digest('base64url')
-}
+type ChallengePurpose = 'login' | 'register'
+const digest = (value: string) => createHash('sha256').update(value).digest('hex')
 
 /** rpName 会显示在系统 Passkey 弹窗里，跟随面板语言。 */
 export async function getRpConfig(t: Translator = fallbackTranslator): Promise<{ rpID: string; origin: string; rpName: string }> {
@@ -55,10 +50,13 @@ export async function getRpConfig(t: Translator = fallbackTranslator): Promise<{
   return { rpID, origin: envOrigin ?? `${proto}://${host}`, rpName: t('common.appTitle') }
 }
 
-/** 写入 challenge cookie（httpOnly，120s） */
-export async function saveChallenge(username: string, challenge: string): Promise<void> {
-  const payload = `${username}.${Date.now() + CHALLENGE_TTL_MS}.${challenge}`
-  const token = Buffer.from(`${payload}.${sign(payload)}`).toString('base64url')
+/** Store purpose and password version as well as the challenge. */
+export async function saveChallenge(username: string, challenge: string, purpose: ChallengePurpose, passwordHash: string | null): Promise<void> {
+  const token = randomBytes(32).toString('base64url')
+  const now = Date.now()
+  sqlite.prepare('DELETE FROM auth_challenges WHERE expires_at <= ?').run(now)
+  sqlite.prepare('INSERT INTO auth_challenges (key, username, purpose, challenge, credential_version, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(digest(token), username, purpose, challenge, credentialVersion(passwordHash), now + CHALLENGE_TTL_MS)
   const store = await cookies()
   store.set(CHALLENGE_COOKIE, token, {
     httpOnly: true,
@@ -69,26 +67,18 @@ export async function saveChallenge(username: string, challenge: string): Promis
   })
 }
 
-/** 读取并校验 challenge（一次性：校验成功后立即清除） */
-export async function consumeChallenge(username: string): Promise<string | null> {
+/** DELETE RETURNING makes cookie and assertion replays fail across workers. */
+export async function consumeChallenge(username: string, purpose: ChallengePurpose, passwordHash: string | null): Promise<string | null> {
   const store = await cookies()
   const raw = store.get(CHALLENGE_COOKIE)?.value
   store.delete(CHALLENGE_COOKIE)
-  if (!raw) return null
-  try {
-    const decoded = Buffer.from(raw, 'base64url').toString('utf8')
-    const [user, expiry, challenge, sig] = decoded.split('.')
-    if (!user || !expiry || !challenge || !sig) return null
-    if (user !== username) return null
-    if (Date.now() > Number(expiry)) return null
-    const expected = sign(`${user}.${expiry}.${challenge}`)
-    const a = Buffer.from(sig)
-    const b = Buffer.from(expected)
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null
-    return challenge
-  } catch {
-    return null
-  }
+  if (!raw || !/^[A-Za-z0-9_-]{43}$/.test(raw)) return null
+  const row = sqlite.prepare('DELETE FROM auth_challenges WHERE key = ? RETURNING username, purpose, challenge, credential_version, expires_at').get(digest(raw)) as {
+    username: string; purpose: string; challenge: string; credential_version: string; expires_at: number
+  } | undefined
+  if (!row || row.username !== username || row.purpose !== purpose || row.expires_at <= Date.now()
+    || row.credential_version !== credentialVersion(passwordHash)) return null
+  return row.challenge
 }
 
 export function parseCredentials(json: string | null): StoredCredential[] {

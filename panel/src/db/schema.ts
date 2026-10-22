@@ -8,6 +8,15 @@ export const authRateLimits = sqliteTable('auth_rate_limits', {
   expiresAt: integer('expires_at').notNull(),
 })
 
+export const authChallenges = sqliteTable('auth_challenges', {
+  key: text('key').primaryKey(),
+  username: text('username').notNull(),
+  purpose: text('purpose').notNull(),
+  challenge: text('challenge').notNull(),
+  credentialVersion: text('credential_version').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+})
+
 /**
  * 面板管理员（M4：argon2 密码 + TOTP + WebAuthn Passkey）
  */
@@ -17,6 +26,7 @@ export const admins = sqliteTable('admins', {
   passwordHash: text('password_hash'),
   webauthnCredentials: text('webauthn_credentials'), // JSON: WebAuthn Credential[]
   totpSecret: text('totp_secret'),
+  totpLastUsedStep: integer('totp_last_used_step'),
   lastLoginAt: text('last_login_at'),
   createdAt: createdAt(),
 })

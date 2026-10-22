@@ -7,11 +7,13 @@ import { generateAuthenticationOptions } from '@simplewebauthn/server'
 import { getRpConfig, parseCredentials, saveChallenge } from '@/lib/webauthn'
 import { getTranslator } from '@/lib/i18n/server'
 import { limitLogin } from '@/lib/login-rate-limit'
+import { hasTrustedOrigin } from '@/lib/request-origin'
 
 export const dynamic = 'force-dynamic'
 
 /** Passkey 登录第 1 步：公开端点，按用户名给 allowCredentials（不暴露是否存在之外的细节） */
 export async function POST(req: Request) {
+  if (!hasTrustedOrigin(req.headers, req.url)) return NextResponse.json({ error: 'invalid_origin' }, { status: 403 })
   const t = await getTranslator()
   const body = await req.json().catch(() => null)
   const username = String(body?.username ?? '').trim()
@@ -28,9 +30,9 @@ export async function POST(req: Request) {
   const { rpID } = await getRpConfig(t)
   const options = await generateAuthenticationOptions({
     rpID,
-    userVerification: 'preferred',
+    userVerification: 'required',
     allowCredentials: creds.map((c) => ({ id: c.id, transports: (c.transports ?? []) as never })),
   })
-  await saveChallenge(username, options.challenge)
+  await saveChallenge(username, options.challenge, 'login', admin.passwordHash)
   return NextResponse.json(options)
 }

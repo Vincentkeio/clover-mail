@@ -14,6 +14,7 @@ import { audit } from '@/lib/audit'
 import { getCurrentAdmin, unauthorized } from '@/lib/auth'
 import { config } from '@/lib/config'
 import { getTranslator } from '@/lib/i18n/server'
+import { readLimitedFormData } from '@/lib/upload'
 
 const execFileAsync = promisify(execFile)
 const MAX_IMPORT_BYTES = 256 * 1024 * 1024
@@ -90,7 +91,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const box = await findMailbox(Number((await ctx.params).id))
   if (!box) return NextResponse.json({ error: t('apiAuth.mailboxes.notFound') }, { status: 404 })
 
-  const form = await req.formData().catch(() => null)
+  const { form, tooLarge } = await readLimitedFormData(req, MAX_IMPORT_BYTES + 1024 * 1024)
+  if (tooLarge) return NextResponse.json({ error: t('apiAuth.mailArchive.fileSize') }, { status: 413 })
   const file = form?.get('file')
   const modeValue = form?.get('mode')
   if (modeValue !== null && modeValue !== 'folder' && modeValue !== 'merge' && modeValue !== 'replace') {

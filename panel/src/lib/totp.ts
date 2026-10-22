@@ -34,12 +34,16 @@ export async function totpQrDataUrl(username: string, secretBase32: string, t: T
   return QRCode.toDataURL(totpUri(username, secretBase32, t), { margin: 1, width: 220 })
 }
 
-/** 校验一次性码（返回 null = 不通过，返回 delta = 命中的偏移窗口，防重放可记录 lastUsedDelta） */
-export function verifyTotp(username: string, secretBase32: string, code: string): boolean {
+/** Return the absolute matched time step, so callers can consume it atomically. */
+export function totpStep(username: string, secretBase32: string, code: string, timestamp = Date.now()): number | null {
   const cleaned = code.replace(/\s/g, '')
-  if (!/^\d{6}$/.test(cleaned)) return false
-  const delta = build(username, secretBase32).validate({ token: cleaned, window: WINDOW })
-  return delta !== null
+  if (!/^\d{6}$/.test(cleaned)) return null
+  const delta = build(username, secretBase32).validate({ token: cleaned, window: WINDOW, timestamp })
+  return delta === null ? null : Math.floor(timestamp / 30_000) + delta
+}
+
+export function verifyTotp(username: string, secretBase32: string, code: string): boolean {
+  return totpStep(username, secretBase32, code) !== null
 }
 
 export function currentTotp(username: string, secretBase32: string): string {

@@ -9,11 +9,13 @@ import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { consumeChallenge, getRpConfig, parseCredentials } from '@/lib/webauthn'
 import { getTranslator } from '@/lib/i18n/server'
 import { clearLoginAttempts, limitLogin } from '@/lib/login-rate-limit'
+import { hasTrustedOrigin } from '@/lib/request-origin'
 
 export const dynamic = 'force-dynamic'
 
 /** Passkey 登录第 2 步：校验断言 → 建会话，并回写 counter（防重放） */
 export async function POST(req: Request) {
+  if (!hasTrustedOrigin(req.headers, req.url)) return NextResponse.json({ error: 'invalid_origin' }, { status: 403 })
   const t = await getTranslator()
   const body = await req.json().catch(() => null)
   const username = String(body?.username ?? '').trim()
@@ -30,7 +32,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: t('apiAuth.webauthn.notRegistered') }, { status: 404 })
   }
 
-  const expectedChallenge = await consumeChallenge(username)
+  const expectedChallenge = await consumeChallenge(username, 'login', admin.passwordHash)
   if (!expectedChallenge) {
     return NextResponse.json({ error: t('apiAuth.webauthn.challengeExpired') }, { status: 400 })
   }
@@ -50,6 +52,7 @@ export async function POST(req: Request) {
       expectedChallenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
+      requireUserVerification: true,
       credential: {
         id: stored.id,
         publicKey: Buffer.from(stored.publicKey, 'base64url'),

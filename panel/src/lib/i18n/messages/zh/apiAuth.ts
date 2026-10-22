@@ -30,6 +30,7 @@ const apiAuth = {
 
   // 邮箱（/api/v1/mailboxes/[id]）
   'mailboxes.notFound': '邮箱不存在',
+  'mailboxes.serviceCreateFailed': '邮件服务未能创建邮箱，已撤回面板记录，请检查服务状态后重试。',
   'mailboxes.serviceUpdateFailed': '邮件服务未能应用修改，请检查服务状态后重试；面板未将此修改标记为完成。',
   'mailboxes.serviceDeleteFailed': '邮件服务未能删除邮箱，已保留面板记录，请检查服务状态后重试。',
   'mailboxes.settingsSyncFailed': '邮箱设置已保存，但邮件服务应用失败：{error}',

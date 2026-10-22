@@ -1,9 +1,12 @@
 {
   "name": "clover-panel",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "private": true,
   "overrides": {
-    "postcss": "^8.5.31"
+    "postcss": "^8.5.31",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.12"
+    }
   },
   "license": "AGPL-3.0-or-later",
   "description": "clover 三叶草邮局 — Web 控制面板（Next.js + SQLite）",

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -8,6 +8,7 @@ import { db } from '@/db'
 import { domains, mailboxes, routingRules } from '@/db/schema'
 import { config } from './config'
 import { createTranslator, type Translator } from './i18n/translate'
+import { createRuleSchema, emailSchema } from './validators'
 
 const execFileAsync = promisify(execFile)
 
@@ -22,7 +23,7 @@ const PREFIX_MAIN_END = '# END CLOVER PREFIX ROUTING'
 export type RoutingMapRule = { matchType: string; matchValue: string | null; domain: string; targets: string[]; priority: number }
 
 function escapePcre(literal: string): string {
-  return literal.replace(/[\\^$.*+?()[\]{}|]/g, (m) => `\\${m}`)
+  return literal.replace(/[\\/^$.*+?()[\]{}|]/g, (m) => `\\${m}`)
 }
 
 function uniqueTargets(rules: RoutingMapRule[]): string[] {
@@ -109,8 +110,12 @@ export async function syncPrefixRules(t: Translator = fallbackTranslator): Promi
     return { matchType: row.matchType, matchValue: row.matchValue, domain: row.domainName, targets, priority: row.priority }
   })
   const content = buildPrefixMapContent(rules, mailboxRows.map((row) => row.login))
+  let dir: string | undefined
   try {
-    const dir = mkdtempSync(join(tmpdir(), 'clover-routing-'))
+    // Refuse malformed legacy/imported rows before touching the active map.
+    for (const rule of rules) createRuleSchema.parse({ ...rule, matchValue: rule.matchValue ?? undefined })
+    for (const box of mailboxRows) emailSchema.parse(box.login)
+    dir = mkdtempSync(join(tmpdir(), 'clover-routing-'))
     const local = join(dir, 'postfix-virtual-regex.cf')
     const localMain = join(dir, 'postfix-main.cf')
     writeFileSync(local, content, 'utf8')
@@ -134,5 +139,5 @@ export async function syncPrefixRules(t: Translator = fallbackTranslator): Promi
     return { ok: true, count: rules.length }
   } catch (err) {
     return { ok: false, count: rules.length, error: err instanceof Error ? err.message : String(err) }
-  }
+  } finally { if (dir) rmSync(dir, { recursive: true, force: true }) }
 }

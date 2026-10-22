@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sessionCookie, verifySessionToken } from '@/lib/session'
+import { isDemoMode } from '@/lib/runtime-mode'
 
 /** 公开页面（无需登录） */
 const PUBLIC_PAGES = ['/login']
@@ -24,7 +25,7 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // DEMO_MODE：本地预览/演示模式，跳过一切登录检查（生产禁止设置）
-  if (process.env.DEMO_MODE === 'true') return NextResponse.next()
+  if (isDemoMode()) return NextResponse.next()
 
   if (PUBLIC_ASSETS.has(pathname)) return NextResponse.next()
 

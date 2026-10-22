@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const [admin] = await db.select().from(admins).where(eq(admins.id, current.id)).limit(1)
   if (!admin) return NextResponse.json({ error: t('apiAuth.adminNotFound') }, { status: 404 })
 
-  const expectedChallenge = await consumeChallenge(admin.username)
+  const expectedChallenge = await consumeChallenge(admin.username, 'register', admin.passwordHash)
   if (!expectedChallenge) {
     return NextResponse.json({ error: t('apiAuth.webauthn.challengeExpired') }, { status: 400 })
   }
@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       expectedChallenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
+      requireUserVerification: true,
     })
   } catch (err) {
     await audit(admin.username, 'auth.passkey_register_failed', undefined, { error: String(err) })

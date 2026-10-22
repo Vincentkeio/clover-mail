@@ -20,31 +20,36 @@ export default function LoginForm({ error, created, needsAdmin = false }: { erro
     e.preventDefault()
     setBusy(true)
     setMsg(null)
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, totp }),
-    })
-    const data = await res.json().catch(() => ({}))
-    setBusy(false)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, totp }),
+      })
+      const data = await res.json().catch(() => ({}))
 
-    if (res.ok) {
-      router.replace('/')
-      router.refresh()
-      return
+      if (res.ok) {
+        router.replace('/')
+        router.refresh()
+        return
+      }
+      if (data.error === 'totp_required') {
+        setNeedTotp(true)
+        setMsg(t('login.totpRequired'))
+        return
+      }
+      if (data.error === 'invalid_totp') {
+        setNeedTotp(true)
+        setTotp('')
+        setMsg(t('login.invalidTotp'))
+        return
+      }
+      setMsg(t(data.error === 'too_many_attempts' ? 'login.tooManyAttempts' : 'login.invalidCredentials'))
+    } catch {
+      setMsg(t('login.networkError'))
+    } finally {
+      setBusy(false)
     }
-    if (data.error === 'totp_required') {
-      setNeedTotp(true)
-      setMsg(t('login.totpRequired'))
-      return
-    }
-    if (data.error === 'invalid_totp') {
-      setNeedTotp(true)
-      setTotp('')
-      setMsg(t('login.invalidTotp'))
-      return
-    }
-    setMsg(t(data.error === 'too_many_attempts' ? 'login.tooManyAttempts' : 'login.invalidCredentials'))
   }
 
   async function passkeyLogin() {

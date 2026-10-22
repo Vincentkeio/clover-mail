@@ -5,6 +5,8 @@ import { db } from '@/db'
 import { admins } from '@/db/schema'
 import { sessionCookie, verifySessionToken } from './session'
 import { TOKEN_PREFIX, verifyApiToken } from './api-token'
+import { isDemoMode } from './runtime-mode'
+import { hasTrustedOrigin } from './request-origin'
 
 export type CurrentAdmin = { id: number; username: string }
 
@@ -16,7 +18,7 @@ export type CurrentAdmin = { id: number; username: string }
  * 3. 面板 session cookie
  */
 export async function getCurrentAdmin(): Promise<CurrentAdmin | null> {
-  if (process.env.DEMO_MODE === 'true') return { id: 0, username: 'demo' }
+  if (isDemoMode()) return { id: 0, username: 'demo' }
 
   const h = await headers()
   const authz = h.get('authorization')
@@ -29,6 +31,9 @@ export async function getCurrentAdmin(): Promise<CurrentAdmin | null> {
     }
   }
 
+  // SameSite cookies also travel between sibling subdomains. Validate browser
+  // origins before accepting cookie authentication, including upload handlers.
+  if (!hasTrustedOrigin(h)) return null
   const store = await cookies()
   const token = store.get(sessionCookie.name)?.value
   const adminId = verifySessionToken(token)

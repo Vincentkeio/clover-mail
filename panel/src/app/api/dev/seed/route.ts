@@ -6,6 +6,7 @@ import { audit } from '@/lib/audit'
 import { getMailHostname, setSetting } from '@/lib/settings'
 import { generateDnsRecords, absoluteName } from '@/lib/dns-generator'
 import { getTranslator } from '@/lib/i18n/server'
+import { isSeedEnabled } from '@/lib/runtime-mode'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST() {
   const t = await getTranslator()
-  if (process.env.ALLOW_SEED !== 'true') {
+  if (!isSeedEnabled()) {
     return NextResponse.json({ error: t('apiErrors.seed.disabled') }, { status: 403 })
   }
 

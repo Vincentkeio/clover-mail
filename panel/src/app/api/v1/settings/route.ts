@@ -5,6 +5,7 @@ import { getGlobalMailSettings, getPanelSettings, setSetting, getCfToken } from 
 import { verifyToken } from '@/lib/cloudflare'
 import { syncMailboxPolicies } from '@/lib/mailbox-policy-sync'
 import { getTranslator } from '@/lib/i18n/server'
+import { settingsPatchSchema } from '@/lib/validators'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,21 +21,9 @@ export async function PATCH(req: Request) {
   if (!admin) return unauthorized()
   const t = await getTranslator()
 
-  const body = await req.json().catch(() => null)
-  const patch: {
-    vpsIp?: string
-    dnsMode?: 'cloudflare' | 'manual'
-    cfApiToken?: string
-    dmarcPolicy?: string
-    spfStrict?: boolean
-    advancedDns?: boolean
-    allowImap?: boolean
-    allowPop3?: boolean
-    allowSieve?: boolean
-    allowSmtp?: boolean
-    allowExternalImages?: boolean
-    maxAttachmentMb?: number
-  } = body ?? {}
+  const parsed = settingsPatchSchema.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) return NextResponse.json({ error: 'invalid_input', details: parsed.error.flatten() }, { status: 400 })
+  const patch = parsed.data
 
   const mailBooleans = ['allowImap', 'allowPop3', 'allowSieve', 'allowSmtp', 'allowExternalImages'] as const
   if (mailBooleans.some((key) => patch[key] !== undefined && typeof patch[key] !== 'boolean')) {
@@ -84,6 +73,7 @@ export async function PATCH(req: Request) {
     // 加密存储
     const { encryptSecret } = await import('@/lib/crypto')
     await setSetting('cf_api_token', encryptSecret(patch.cfApiToken.trim()), true)
+    await setSetting('cf_api_token_disabled', 'false')
   }
   const mailPolicyChanged = ['allowImap', 'allowPop3', 'allowSieve', 'allowSmtp', 'maxAttachmentMb', 'allowExternalImages'].some((key) => key in patch)
   const policySync = mailPolicyChanged ? await syncMailboxPolicies() : { ok: true as const }
@@ -111,6 +101,7 @@ export async function DELETE() {
   if (!admin) return unauthorized()
   const t = await getTranslator()
   await setSetting('cf_api_token', '', true)
+  await setSetting('cf_api_token_disabled', 'true')
   await audit(admin.username, 'settings.cf_token_cleared')
   return NextResponse.json(await getPanelSettings(t))
 }

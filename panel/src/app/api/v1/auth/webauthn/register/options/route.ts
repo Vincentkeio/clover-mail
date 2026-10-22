@@ -34,10 +34,10 @@ export async function POST() {
     excludeCredentials: existing.map((c) => ({ id: c.id, transports: (c.transports ?? []) as never })),
     authenticatorSelection: {
       residentKey: 'preferred',
-      userVerification: 'preferred',
+      userVerification: 'required',
     },
   })
 
-  await saveChallenge(admin.username, options.challenge)
+  await saveChallenge(admin.username, options.challenge, 'register', admin.passwordHash)
   return NextResponse.json(options)
 }

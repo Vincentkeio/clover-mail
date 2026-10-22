@@ -8,6 +8,7 @@ import { audit } from '@/lib/audit'
 import { issueMaintenanceTicket } from '@/lib/maintenance-ticket'
 import { getTranslator } from '@/lib/i18n/server'
 import type { Translator } from '@/lib/i18n/translate'
+import { hasTrustedOrigin } from '@/lib/request-origin'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -66,8 +67,7 @@ export async function POST(req: Request) {
   if (!admin) return unauthorized()
   const t = await getTranslator()
   const origin = req.headers.get('origin')
-  const requestHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || new URL(req.url).host
-  if (origin && new URL(origin).host !== requestHost) return NextResponse.json({ error: t('apiSystem.maintenance.badOrigin') }, { status: 403 })
+  if (!hasTrustedOrigin(req.headers, req.url)) return NextResponse.json({ error: t('apiSystem.maintenance.badOrigin') }, { status: 403 })
   const body = await req.json().catch(() => ({}))
   const action = String(body.action || '')
   if (!['restart', 'update', 'configure'].includes(action)) return NextResponse.json({ error: t('apiSystem.maintenance.invalidAction') }, { status: 400 })
