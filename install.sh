@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# clover 三叶草邮局 — 一键安装器 v2.0.9
+# clover 三叶草邮局 — 一键安装器 v2.0.11
 #
 #   bash install.sh                          # 交互式安装（推荐）
 #   bash install.sh --non-interactive        # 从环境变量读参数（自动化/CI）
@@ -19,6 +19,12 @@ umask 077
 
 CLOVER_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$CLOVER_HOME"
+
+# Only this invocation's temporary TLS files; never use shared /tmp filenames.
+INSTALL_TLS_TMP=''
+trap 'if [[ -n "$INSTALL_TLS_TMP" ]]; then rm -rf -- "$INSTALL_TLS_TMP"; fi' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ -t 1 && -z "${NO_COLOR:-}" && "${TERM:-dumb}" != dumb ]]; then
   GREEN=$'\033[1;32m'; YELLOW=$'\033[1;33m'; RED=$'\033[1;31m'
@@ -66,7 +72,7 @@ run_sh() {
 printf "${CYAN}"
 cat <<'EOF'
    ╭──────────────────────────────────────────╮
-   │   🍀  clover 三叶草邮局 · 一键安装 v2.0.9 │
+   │   🍀  clover 三叶草邮局 · 一键安装 v2.0.11│
    │   自托管 Docker 邮局 + DNS 一键推送 CF    │
    ╰──────────────────────────────────────────╯
 EOF
@@ -376,7 +382,7 @@ else
 fi
 
 if [ "$DRY_RUN" -eq 0 ] && [ -x scripts/install-cli.sh ]; then
-  bash scripts/install-cli.sh "$CLOVER_HOME" || warn "快捷命令未能安装；可运行 bash ${CLOVER_HOME}/scripts/install-cli.sh 手动安装"
+  CLOVER_FRESH_INSTALL=1 bash scripts/install-cli.sh "$CLOVER_HOME" || warn "快捷命令未能安装；可运行 bash ${CLOVER_HOME}/scripts/install-cli.sh 手动安装"
 fi
 
 # 正式安装始终使用已发布的 GHCR 镜像。bootstrap 解压的仓库源码也可能含有 panel/，
@@ -393,7 +399,7 @@ step "4/6 拉取镜像并启动（首次约 3–10 分钟，ClamAV 镜像较大�
 run bash scripts/ensure-roundcube-env.sh
 run docker compose "${COMPOSE_FILES[@]}" pull panel mail caddy roundcube \
   || die "无法拉取发布镜像；请检查网络与 GHCR 访问后重试。未启动旧缓存镜像。"
-run docker compose "${COMPOSE_FILES[@]}" build certificate-helper
+run bash scripts/install-build.sh
 run docker compose "${COMPOSE_FILES[@]}" up -d --no-build
 
 if [ "$SHARED_CADDY" -eq 1 ]; then
@@ -431,15 +437,17 @@ else
   else
     for i in $(seq 1 30); do docker exec docker-mailserver sh -c 'true' >/dev/null 2>&1 && break; sleep 3; done
     if command -v openssl >/dev/null 2>&1; then
+      INSTALL_TLS_TMP="$(mktemp -d)"
       docker exec docker-mailserver sh -c 'mkdir -p /tmp/docker-mailserver/ssl'
       openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=${MAIL_HOSTNAME}" \
-        -keyout /tmp/clover-mail.key -out /tmp/clover-mail.crt 2>/dev/null
-      docker cp /tmp/clover-mail.crt docker-mailserver:/tmp/docker-mailserver/ssl/mail.crt
-      docker cp /tmp/clover-mail.key docker-mailserver:/tmp/docker-mailserver/ssl/mail.key
+        -keyout "$INSTALL_TLS_TMP/mail.key" -out "$INSTALL_TLS_TMP/mail.crt" 2>/dev/null
+      docker cp "$INSTALL_TLS_TMP/mail.crt" docker-mailserver:/tmp/docker-mailserver/ssl/mail.crt
+      docker cp "$INSTALL_TLS_TMP/mail.key" docker-mailserver:/tmp/docker-mailserver/ssl/mail.key
       docker exec docker-mailserver chmod 600 /tmp/docker-mailserver/ssl/mail.key
       printf 'SSL_TYPE=manual\nSSL_CERT_PATH=/tmp/docker-mailserver/ssl/mail.crt\nSSL_KEY_PATH=/tmp/docker-mailserver/ssl/mail.key\n' >> .env
       run docker compose "${COMPOSE_FILES[@]}" up -d mail
-      rm -f /tmp/clover-mail.key /tmp/clover-mail.crt
+      rm -rf -- "$INSTALL_TLS_TMP"
+      INSTALL_TLS_TMP=''
       warn "已启用自签 TLS。生产环境请换真证书（见 README「邮件 TLS 证书」），否则部分客户端会告警"
     else
       warn "缺少 openssl，跳过 DMS TLS 证书生成 —— 587/465 认证发信会失败！"

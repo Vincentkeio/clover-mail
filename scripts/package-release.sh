@@ -46,6 +46,9 @@ FILES=(
   scripts/ensure-roundcube-env.sh
   scripts/configure-roundcube.sh
   scripts/compose-install.sh
+  scripts/install-build.sh
+  scripts/project-maintenance.sh
+  scripts/cleanup-project.py
   scripts/install-cli.sh
   scripts/upgrade.sh
   deploy/roundcube/config/clover.php

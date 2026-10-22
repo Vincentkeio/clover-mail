@@ -29,8 +29,11 @@ jobs:
         run: |
           python3 -m unittest discover -s ../tests -p 'test_*.py'
           bash ../tests/test-project-maintenance.sh
+          bash ../tests/test-install-cleanup.sh
       - name: 检查安装与管理脚本语法
         run: |
           for script in ../install.sh ../bootstrap.sh ../scripts/*.sh; do
             bash -n "$script"
           done
+      - name: 实测全新安装的独立构建与收尾
+        run: bash ../tests/test-install-build-docker.sh

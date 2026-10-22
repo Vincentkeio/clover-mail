@@ -74,10 +74,10 @@ if [[ "$SSL_TYPE" = manual && "${SSL_CERT_PATH:-}" = /tmp/docker-mailserver/ssl/
   '
 fi
 echo '正在构建证书助手并启动服务…'
-compose build certificate-helper
+bash scripts/install-build.sh
 compose up -d --no-build mail panel roundcube caddy certificate-helper
 bash scripts/admin-bootstrap.sh
 bash scripts/configure-roundcube.sh
-CLOVER_CLI_TARGET=/host-bin/clover bash scripts/install-cli.sh "$project"
+CLOVER_FRESH_INSTALL=1 CLOVER_CLI_TARGET=/host-bin/clover bash scripts/install-cli.sh "$project"
 printf '\n安装完成： https://%s/\n' "$PANEL_HOSTNAME"
 echo '管理员凭据已在上方显示（已有管理员会保留）。初始邮件证书为自签时，请登录面板签发可信证书。'

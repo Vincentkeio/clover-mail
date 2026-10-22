@@ -26,6 +26,8 @@ Run your own mail service on a server you control, and manage domains, mailboxes
 
 The installer can install Docker for you. If the host already runs a supported Caddy or Nginx, Clover can share that web entry point.
 
+Fresh installs require Docker Buildx and Compose with support for a separate builder. Each install uses a temporary builder and removes its build cache on success or failure. Shared caches, other projects' images, and application data volumes are preserved, as are service images and shared build tooling images.
+
 ## Quick install
 
 The one-line installer is recommended:

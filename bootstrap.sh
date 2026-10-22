@@ -91,6 +91,11 @@ mkdir -p "${DEST}"
 cp -a "${SRC}/." "${DEST}/"
 chmod +x "${DEST}/install.sh" "${DEST}/scripts/"*.sh 2>/dev/null || true
 
+# exec below replaces this shell, so its EXIT trap would never run on success.
+# Only remove the private directory allocated by this invocation of mktemp.
+rm -rf -- "${TMP}"
+trap - EXIT
+
 cd "${DEST}"
 # 私有镜像仓库登录（GHCR 上的 clover-panel 若为私有包，拉取前必须先登录）
 if [ -n "${CLOVER_GHCR_TOKEN:-}" ]; then

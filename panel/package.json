@@ -1,6 +1,6 @@
 {
   "name": "clover-panel",
-  "version": "2.0.10",
+  "version": "2.0.11",
   "private": true,
   "overrides": {
     "postcss": "^8.5.31",
