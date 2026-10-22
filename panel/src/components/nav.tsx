@@ -14,24 +14,24 @@ const GROUPS: Array<{ id: string; title: MessageKey; links: NavItem[] }> = [
   { id: 'environment', title: 'nav.groupEnvironment', links: [
     { href: '/cloudflare', label: 'nav.cloudflare', icon: 'cloud', status: 'cloudflare' },
     { href: '/domains', label: 'nav.domains', icon: 'globe', status: 'domains' },
-    { href: '/environment', label: 'nav.dns', icon: 'globe', status: 'dns' },
+    { href: '/environment', label: 'nav.dns', icon: 'dns', status: 'dns' },
     { href: '/panel-settings', label: 'nav.panelTls', icon: 'certificate', status: 'tls' },
   ] },
   { id: 'check', title: 'nav.groupCheck', links: [
     { href: '/environment-check', label: 'nav.environmentCheck', icon: 'check', status: 'overall' },
-    { href: '/monitor/deliverability', label: 'nav.deliverability', icon: 'pulse' },
+    { href: '/monitor/deliverability', label: 'nav.deliverability', icon: 'deliverability' },
   ] },
   { id: 'mailbox', title: 'nav.groupMailbox', links: [
     { href: '/mailboxes', label: 'nav.mailboxes', icon: 'mail' },
-    { href: '/mail-settings', label: 'nav.mailSettings', icon: 'sliders' },
+    { href: '/mail-settings', label: 'nav.mailSettings', icon: 'mail-settings' },
     { href: '/webmail', label: 'nav.webmail', icon: 'inbox' },
     { href: '/routing', label: 'nav.routing', icon: 'route' },
   ] },
   { id: 'advanced', title: 'nav.groupAdvanced', links: [
-    { href: '/updates', label: 'nav.updates', icon: 'refresh' },
+    { href: '/updates', label: 'nav.updates', icon: 'system-update' },
     { href: '/settings', label: 'nav.advanced', icon: 'sliders' },
     { href: '/monitor/spam', label: 'nav.spam', icon: 'shield' },
-    { href: '/monitor/queue', label: 'nav.queue', icon: 'pulse' },
+    { href: '/monitor/queue', label: 'nav.queue', icon: 'queue' },
     { href: '/api-docs', label: 'nav.apiDocs', icon: 'code' },
   ] },
 ]
@@ -41,11 +41,15 @@ function Icon({ name }: { name: string }) {
   return <svg aria-hidden="true" viewBox="0 0 24 24" {...common}>
     {name === 'cloud' && <><path d="M7 18h10a4 4 0 0 0 .4-8A5.7 5.7 0 0 0 6.5 9.3 4.4 4.4 0 0 0 7 18Z"/><path d="m9 13 3-3 3 3m-3-3v7"/></>}
     {name === 'globe' && <><circle cx="12" cy="12" r="9"/><path d="M3.5 12h17M12 3c2.3 2.4 3.4 5.4 3.4 9s-1.1 6.6-3.4 9c-2.3-2.4-3.4-5.4-3.4-9S9.7 5.4 12 3Z"/></>}
+    {name === 'dns' && <><circle cx="12" cy="5" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M12 7.2v4.1M6 15.8v-2.2h12v2.2"/></>}
     {name === 'pulse' && <path d="M3 12h4l2.4-6 4.2 12 2.4-6H21"/>}
-    {name === 'refresh' && <><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.5-2L20 8M4 16l2.4 3A7 7 0 0 0 18 17"/></>}
+    {name === 'deliverability' && <><path d="M4 19V13m5 6V9m5 10V6m5 13V4"/><path d="m4 10 5-3 4 1 6-5m-4 0h4v4"/></>}
+    {name === 'queue' && <><path d="M8 5h12M8 12h12M8 19h12"/><circle cx="4" cy="5" r=".8"/><circle cx="4" cy="12" r=".8"/><circle cx="4" cy="19" r=".8"/></>}
+    {name === 'system-update' && <><rect x="4" y="6.5" width="16" height="14" rx="2"/><path d="M8 6.5v-2h8v2M12 17v-7m-3 3 3-3 3 3"/></>}
     {name === 'shield' && <><path d="M12 3 20 6v5c0 5-3.2 8.2-8 10-4.8-1.8-8-5-8-10V6l8-3Z"/><path d="m9 12 2 2 4-4"/></>}
     {name === 'check' && <><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></>}
     {name === 'mail' && <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></>}
+    {name === 'mail-settings' && <><path d="M3 6h13v12H3zM4 8l5.5 4L15 8"/><circle cx="18" cy="17" r="3"/><path d="M18 12.8v1.3m0 5.8v1.3m-4.2-4.2h1.3m5.8 0h1.3m-7.2-3 1 1m4.1 4.1 1 1m0-6.2-1 1m-4.1 4.1-1 1"/></>}
     {name === 'inbox' && <><path d="M4 5h16l2 11v4H2v-4L4 5Z"/><path d="M2 16h6l1.5 2h5L16 16h6"/></>}
     {name === 'route' && <><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h4a4 4 0 0 1 4 4v6M6 8v11h8"/></>}
     {name === 'sliders' && <><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></>}
