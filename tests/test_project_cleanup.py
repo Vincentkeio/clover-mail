@@ -29,6 +29,16 @@ class CleanupSafetyTests(unittest.TestCase):
         old = image('a', ['clover-panel:preview-base', 'other-project:rollback'], cleanup.SOURCE)
         self.assertEqual(cleanup.image_candidates([old], [], []), [])
 
+    def test_docker29_index_config_and_compose_ids_all_protect_the_active_image(self):
+        indexed = image('a', ['clover-certificate-helper:latest'], cleanup.SOURCE)
+        for config in [
+            {'Image': 'clover-certificate-helper'},
+            {'Image': 'another-ref', 'Labels': {'com.docker.compose.image': indexed['Id']}},
+            {'Image': indexed['Id']},
+        ]:
+            container = {'Image': 'sha256:' + 'b' * 64, 'Config': config}
+            self.assertEqual(cleanup.image_candidates([indexed], [container], []), [])
+
     def test_upstream_label_or_dangling_alone_is_insufficient(self):
         old = image('a', [], 'https://github.com/caddyserver/caddy-docker')
         self.assertEqual(cleanup.image_candidates([old, image('b')], [], []), [])

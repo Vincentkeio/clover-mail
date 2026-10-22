@@ -86,9 +86,29 @@ def clover_tag(tag):
         value == 'latest' or value == 'preview-base' or value.startswith('preview-'))
 
 
+def protected_image_ids(images, all_containers):
+    # Docker's containerd store may report an index/manifest ID for a tag but
+    # a platform/config ID on the container. Preserve every alias, including
+    # refs used by stopped or unrelated containers, rather than comparing one ID.
+    used = {c['Image'] for c in all_containers}
+    refs = set()
+    for container in all_containers:
+        config = container.get('Config', {})
+        ref = config.get('Image')
+        if ref:
+            refs.add(normalize_ref(ref))
+            if IMAGE_ID.fullmatch(ref):
+                used.add(ref)
+        compose_id = (config.get('Labels') or {}).get('com.docker.compose.image', '')
+        if IMAGE_ID.fullmatch(compose_id):
+            used.add(compose_id)
+    used.update(image['Id'] for image in images if tags(image) & refs)
+    return used
+
+
 def image_candidates(images, all_containers, records):
     """Every container, including stopped/unrelated containers, protects its image."""
-    used = {c['Image'] for c in all_containers}
+    used = protected_image_ids(images, all_containers)
     recorded = {}
     for record in records:
         recorded.setdefault(record['id'], set()).add(normalize_ref(record['ref']))
@@ -167,7 +187,8 @@ def remove_image(image):
     # Recheck references and container use immediately before each removal.
     for ref in sorted(tags(image)) or [image_id]:
         current = json.loads(docker('image', 'inspect', ref))
-        if current[0]['Id'] != image_id or tags(current[0]) != tags(image) or image_id in {c['Image'] for c in containers()}:
+        if current[0]['Id'] != image_id or tags(current[0]) != tags(image) \
+                or image_id in protected_image_ids(current, containers()):
             return False
         docker('image', 'rm', '--no-prune', ref)  # no --force, even when a container appears concurrently
         image['RepoTags'] = sorted(tags(image) - {ref})
