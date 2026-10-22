@@ -6,7 +6,7 @@
 #   BACKUP_DIR=/mnt/backup ./scripts/backup.sh
 #
 # 依赖：curl；使用 .env 里的 RECONCILE_TOKEN 认证（面板设置页也可生成 API token）
-# cron 示例（每日 3:30，保留 14 天）：
+# cron 示例（每日 3:30，只保留最近一次完整备份）：
 #   30 3 * * * cd /root/clover && ./scripts/backup.sh >> /var/log/clover-backup.log 2>&1
 # =============================================================================
 set -euo pipefail
@@ -23,10 +23,15 @@ set -a; . ./.env; set +a
 
 BASE_URL="${BACKUP_BASE_URL:-https://${PANEL_HOSTNAME}}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
-RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
+BACKUP_TMP=""
+cleanup_backup_tmp() {
+  [ -z "$BACKUP_TMP" ] || rm -rf -- "$BACKUP_TMP"
+}
+trap cleanup_backup_tmp EXIT
 
 mkdir -p "${BACKUP_DIR}"
+BACKUP_TMP="$(mktemp -d "${BACKUP_DIR}/.clover-backup-${STAMP}.XXXXXX")"
 
 echo "[backup] $(date -Is) 开始 → ${BACKUP_DIR}"
 
@@ -75,17 +80,22 @@ fetch() {
   fi
 }
 
-fetch db "${BACKUP_DIR}/clover-db-${STAMP}.db"
-fetch dms-config "${BACKUP_DIR}/dms-config-${STAMP}.tar.gz"
+fetch db "${BACKUP_TMP}/clover-db-${STAMP}.db"
+fetch dms-config "${BACKUP_TMP}/dms-config-${STAMP}.tar.gz"
 
 # 校验 SQLite 快照可读（有 sqlite3 才校验）
 if command -v sqlite3 >/dev/null 2>&1; then
-  sqlite3 "${BACKUP_DIR}/clover-db-${STAMP}.db" 'PRAGMA integrity_check;' | head -1
+  integrity="$(sqlite3 "${BACKUP_TMP}/clover-db-${STAMP}.db" 'PRAGMA integrity_check;' | head -1)"
+  [ "$integrity" = 'ok' ] || { echo "[backup] SQLite 快照校验失败：${integrity:-无结果}" >&2; exit 1; }
 fi
 
-# 轮转：删除超过保留天数的备份
+# 先完整生成并校验新备份，再发布文件并清理旧版本；失败时旧备份仍保留。
+db_name="clover-db-${STAMP}.db"
+config_name="dms-config-${STAMP}.tar.gz"
+mv -- "${BACKUP_TMP}/${db_name}" "${BACKUP_DIR}/${db_name}"
+mv -- "${BACKUP_TMP}/${config_name}" "${BACKUP_DIR}/${config_name}"
 find "${BACKUP_DIR}" -maxdepth 1 -type f \
   \( -name 'clover-db-*.db' -o -name 'dms-config-*.tar.gz' \) \
-  -mtime "+${RETENTION_DAYS}" -print -delete 2>/dev/null || true
+  ! -name "$db_name" ! -name "$config_name" -print -delete
 
-echo "[backup] $(date -Is) 完成（保留 ${RETENTION_DAYS} 天）"
+echo "[backup] $(date -Is) 完成（仅保留最近一次完整备份）"

@@ -171,7 +171,12 @@ fi
 # 1) 升级前备份（有脚本就备份，失败不阻断但明确告警）
 if [ -f scripts/backup.sh ] && [ -n "${RECONCILE_TOKEN:-}" ]; then
   log "升级前备份…"
-  if ! bash scripts/backup.sh; then
+  if bash scripts/backup.sh; then
+    if [[ "${CLOVER_UPDATE_SNAPSHOT_STAMP:-}" =~ ^[0-9]{8}T[0-9]{6}Z$ ]]; then
+      docker exec clover-panel rm -f "/app/data/clover-before-update-${CLOVER_UPDATE_SNAPSHOT_STAMP}.db" \
+        || warn "完整备份已成功，但未能删除重复的面板数据库回滚快照。"
+    fi
+  else
     warn "备份失败！继续升级前请确认可接受（Ctrl+C 中止）"
     sleep 5
   fi
@@ -324,6 +329,31 @@ if [ "${ok}" -eq 1 ]; then
   # gateway so both Git and archive upgrades use the current host files.
   docker compose "${COMPOSE_FILES[@]}" up -d --no-deps --no-build --force-recreate caddy
   rm -f .clover-local-build
+  log "清理未使用的 Docker 构建缓存…"
+  docker builder prune --all --force || warn "构建缓存清理失败；服务已健康运行，可稍后手动执行 docker builder prune -a。"
+  log "清理未使用的 Docker 镜像层…"
+  docker image prune --force || warn "悬空镜像清理失败；服务已健康运行，可稍后手动执行 docker image prune。"
+  # Tagged images are not dangling. Inspect every repository used by this
+  # Compose project and remove old image IDs only when no container references
+  # them (including stopped containers and other projects).
+  while IFS= read -r image_ref; do
+    [ -n "$image_ref" ] || continue
+    image_ref="${image_ref%%@*}"
+    image_component="${image_ref##*/}"
+    if [[ "$image_component" == *:* ]]; then
+      image_repo="${image_ref%:*}"
+    else
+      image_repo="$image_ref"
+    fi
+    while IFS= read -r image_id; do
+      [ -n "$image_id" ] || continue
+      if [ -n "$(docker ps -aq --filter "ancestor=${image_id}" 2>/dev/null || true)" ]; then
+        continue
+      fi
+      docker image rm "$image_id" >/dev/null \
+        || warn "未使用旧镜像清理失败：${image_id} (${image_repo})"
+    done < <(docker image ls --no-trunc --format '{{.ID}}' "$image_repo" 2>/dev/null | sort -u)
+  done < <(docker compose "${COMPOSE_FILES[@]}" config --images 2>/dev/null | sort -u)
   log "升级完成，面板与 Roundcube 免密连接已就绪。查看状态：docker compose ps"
   log "迁移日志：docker logs clover-panel | grep migrations"
 else

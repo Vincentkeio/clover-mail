@@ -105,11 +105,19 @@ case "$action" in
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
     echo '正在备份面板数据库…'
     docker exec clover-panel node -e 'const Database=require("better-sqlite3"); const db=new Database("/app/data/clover.db"); db.backup("/app/data/clover-before-update-"+process.argv[1]+".db").then(()=>db.close()).catch((err)=>{console.error(err);process.exit(1)})' "$stamp"
+    docker exec clover-panel sh -c 'find /app/data -maxdepth 1 -type f -name "clover-before-update-*.db" ! -name "clover-before-update-$1.db" -print -delete' sh "$stamp" \
+      || echo '警告：旧的更新回滚快照清理失败，最新快照已保留。' >&2
     echo '正在准备完整更新工具…'
     apk add --no-cache bash curl git openssl python3
     export CLOVER_UPDATE_TO_LATEST=1
+    export CLOVER_UPDATE_SNAPSHOT_STAMP="$stamp"
     # Use the same source/scripts/Compose/image update path as the clover CLI.
-    exec bash scripts/upgrade.sh
+    upgrade_status=0
+    bash scripts/upgrade.sh || upgrade_status=$?
+    echo '正在清理维护容器中的临时更新工具…'
+    apk del bash curl git openssl python3 >/dev/null \
+      || echo '警告：临时更新工具清理不完整；维护容器会在下次任务启动时移除。' >&2
+    exit "$upgrade_status"
     ;;
   configure)
     panel_host="${2:-}"
