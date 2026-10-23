@@ -78,6 +78,8 @@ bash scripts/install-build.sh
 compose up -d --no-build mail panel roundcube caddy certificate-helper
 bash scripts/admin-bootstrap.sh
 bash scripts/configure-roundcube.sh
-CLOVER_FRESH_INSTALL=1 CLOVER_CLI_TARGET=/host-bin/clover bash scripts/install-cli.sh "$project"
+if ! CLOVER_FRESH_INSTALL=1 CLOVER_CLI_TARGET=/host-bin/clover bash scripts/install-cli.sh "$project"; then
+  echo "警告：快捷命令未能安装，已有命令原样保留。可在 ${project} 运行 bash scripts/clover.sh 管理本实例。" >&2
+fi
 printf '\n安装完成： https://%s/\n' "$PANEL_HOSTNAME"
 echo '管理员凭据已在上方显示（已有管理员会保留）。初始邮件证书为自签时，请登录面板签发可信证书。'

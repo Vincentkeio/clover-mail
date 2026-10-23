@@ -78,4 +78,36 @@ CLOVER_FRESH_INSTALL=1 CLOVER_CLI_TARGET="$scratch/clover-command" bash "$scratc
 test ! -s "$CLOVER_TEST_CALLS"
 CLOVER_CLI_TARGET="$scratch/clover-legacy-command" bash "$scratch/project/scripts/install-cli.sh" "$scratch/project"
 test "$(cat "$CLOVER_TEST_CALLS")" = capture
+# An optional CLI conflict must not report an otherwise successful install as failed.
+cp "$root/scripts/compose-install.sh" "$scratch/project/scripts/"
+cat > "$scratch/project/.env" <<'ENV'
+PANEL_HOSTNAME=panel.install-test.invalid
+MAIL_HOSTNAME=mail.install-test.invalid
+MAIL_DOMAIN=install-test.invalid
+ACME_EMAIL=admin@install-test.invalid
+ENABLE_CLAMAV=0
+SSL_TYPE=manual
+SSL_CERT_PATH=/test/mail.crt
+SSL_KEY_PATH=/test/mail.key
+ENV
+cat > "$scratch/bin/docker" <<'MOCK'
+#!/usr/bin/env bash
+[[ "$1" != inspect ]] || exit 1
+[[ "$1" = compose ]] || exit 91
+exit 0
+MOCK
+for helper in admin-bootstrap configure-roundcube install-build; do
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$scratch/project/scripts/$helper.sh"
+done
+printf '#!/usr/bin/env bash\nexit 42\n' > "$scratch/project/scripts/install-cli.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$scratch/bin/flock"
+chmod +x "$scratch/bin/flock"
+CLOVER_HOME="$scratch/project" bash "$scratch/project/scripts/compose-install.sh" > "$scratch/compose-output" 2>&1 || { cat "$scratch/compose-output"; exit 1; }
+grep -q '已有命令原样保留' "$scratch/compose-output"
+grep -q '安装完成' "$scratch/compose-output"
+printf '#!/usr/bin/env bash\nexit 43\n' > "$scratch/project/scripts/configure-roundcube.sh"
+status=0
+CLOVER_HOME="$scratch/project" bash "$scratch/project/scripts/compose-install.sh" > "$scratch/compose-output" 2>&1 || status=$?
+test "$status" = 43
+! grep -q '安装完成' "$scratch/compose-output"
 echo 'Fresh install isolation, failure cleanup and bootstrap temporary directory checks passed.'
