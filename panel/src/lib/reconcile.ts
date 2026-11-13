@@ -77,11 +77,14 @@ export async function runReconcile(options: { heal?: boolean } = {}, t: Translat
     readContainerFile(`${DMS_CONFIG_DIR}/postfix-accounts.cf`),
     readContainerFile(`${DMS_CONFIG_DIR}/postfix-virtual.cf`),
   ])
-  if (!accountsFile.ok || !virtualFile.ok) {
-    const errs = [accountsFile.ok ? null : accountsFile.error, virtualFile.ok ? null : virtualFile.error]
-    report.errors.push(...errs.filter((e): e is string => !!e))
+  // postfix-accounts.cf 由 DMS 初始化必然生成，读不到才算邮件服务不可达。
+  if (!accountsFile.ok) {
+    report.errors.push(accountsFile.error)
     return report
   }
+  // postfix-virtual.cf 只在存在别名时才由 DMS 创建；尚未添加任何转发规则时该文件
+  // 缺失属于正常状态。此前把「文件不存在」一并当作服务不可达，会让对账在有邮箱、
+  // 无别名的新装机上永久失败，掩盖真实的账号/规则漂移。
   report.dmsReachable = true
 
   // ---- 账号 diff ----
@@ -101,7 +104,8 @@ export async function runReconcile(options: { heal?: boolean } = {}, t: Translat
     const targets = parseTargets(rule.targets)
     expected.set(addr, [...new Set([...(expected.get(addr) ?? []), ...targets])])
   }
-  const dmsAliasMap = new Map(parseVirtualFile(virtualFile.stdout).map((a) => [a.alias, a.targets]))
+  // 别名文件缺失 = 当前没有任何别名规则，按空表处理即可。
+  const dmsAliasMap = new Map(parseVirtualFile(virtualFile.ok ? virtualFile.stdout : '').map((a) => [a.alias, a.targets]))
   report.rules.missing = [...expected.entries()]
     .filter(([addr]) => !dmsAliasMap.has(addr))
     .map(([alias, targets]) => ({ alias, targets }))

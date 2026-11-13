@@ -285,6 +285,39 @@ test('cookie authentication rejects sibling-site CSRF, scheme changes and malfor
   } finally { if (previous === undefined) delete process.env.PANEL_URL; else process.env.PANEL_URL = previous }
 })
 
+test('origin tightening blocks browser subresource requests without Origin but keeps cron and navigation working', () => {
+  const previous = process.env.PANEL_URL
+  process.env.PANEL_URL = 'https://panel.example.test'
+  try {
+    const { hasTrustedOrigin } = load('src/lib/request-origin.ts')
+    const check = (extra = {}) => hasTrustedOrigin(new Headers({ host: 'panel.example.test', 'x-forwarded-proto': 'https', ...extra }))
+
+    // 1. 面板自身页面的 fetch：带匹配 Origin，放行
+    assert.equal(check({ origin: 'https://panel.example.test', 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors' }), true)
+
+    // 2. 收紧的核心：浏览器声明是子资源请求却没有 Origin —— 以前直接放行，现在拒绝
+    for (const mode of ['cors', 'same-origin', 'no-cors']) {
+      assert.equal(check({ 'sec-fetch-mode': mode }), false, `mode=${mode} 缺少 Origin 应拒绝`)
+    }
+
+    // 3. 同级子域发起的 fetch（SameSite cookie 会带上，属于真实缺口）必须拒绝
+    assert.equal(check({ origin: 'https://mail.example.test', 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'cors' }), false)
+    // 即使 Origin 缺失也不能绕过
+    assert.equal(check({ 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'cors' }), false)
+
+    // 4. 顶级导航（地址栏、书签、点击同站链接）不带 Origin，必须放行，否则面板打不开
+    assert.equal(check({ 'sec-fetch-mode': 'navigate' }), true)
+    assert.equal(check({ 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'navigate' }), true)
+
+    // 5. cron / CLI / 容器内回环（Bearer token）没有任何 Fetch Metadata，必须放行
+    assert.equal(check(), true)
+
+    // 6. 跨站仍然一律拒绝
+    assert.equal(check({ origin: 'https://evil.example.test', 'sec-fetch-site': 'cross-site' }), false)
+    assert.equal(check({ 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }), false)
+  } finally { if (previous === undefined) delete process.env.PANEL_URL; else process.env.PANEL_URL = previous }
+})
+
 test('forwarding targets normalize consistently and reject invalid addresses and configuration injection', () => {
   const validators = load('src/lib/validators.ts', i18nMocks)
   for (const targets of ['one@example.test, TWO@example.test', ['one@example.test', ' TWO@example.test ']]) {
@@ -367,3 +400,59 @@ test('Cloudflare clear disables environment fallback; saving a replacement re-en
   assert.equal(values.get('cf_api_token'), 'encrypted:new-test-token')
   assert.equal(values.get('cf_api_token_disabled'), 'false')
 })
+
+test('reconcile stays reachable when no alias file exists yet', async () => {
+  // 新装机、只建了邮箱没有别名的场景：DMS 不会创建 postfix-virtual.cf。
+  // 这种状态必须判为「服务可达 + 无别名规则」，否则对账永久失败，
+  // 真实的账号漂移被掩盖，用户看到的就是收不到信却查不出原因。
+  const accounts = 'box@example.test|{SHA512-CRYPT}$6$hash\n'
+  const files = { '/tmp/docker-mailserver/postfix-accounts.cf': accounts }
+  const reconcile = load('src/lib/reconcile.ts', {
+    '@/db': { db: {
+      select: () => ({
+        from: (table) => Promise.resolve(
+          table === 'mailboxes' ? [{ id: 1, domainId: 1, login: 'box@example.test', active: true }] : [],
+        ),
+      }),
+    } },
+    '@/db/schema': { domains: 'domains', mailboxes: 'mailboxes', routingRules: 'routingRules' },
+    './dms': {
+      DMS_CONFIG_DIR: '/tmp/docker-mailserver',
+      readContainerFile: async (path) => (
+        path in files
+          ? { ok: true, stdout: files[path] }
+          : { ok: false, error: 'Mail service command failed (exit 1)', stderr: '' }
+      ),
+    },
+    './sync': {
+      ruleAliasAddress: () => null, syncAliasAdd: async () => ({ ok: true }),
+      syncAliasDelete: async () => ({ ok: true }), syncMailboxDelete: async () => ({ ok: true }),
+      syncError: () => 'error',
+    },
+    './prefix-sync': { syncPrefixRules: async () => ({ ok: true, count: 0 }) },
+    '@/lib/i18n/translate': i18nMocks['@/lib/i18n/translate'],
+  })
+
+  const report = await reconcile.runReconcile()
+  assert.equal(report.dmsReachable, true, '缺失别名文件不应判定为服务不可达')
+  assert.deepEqual(report.errors, [], '没有别名不应产生错误')
+  assert.deepEqual(report.mailboxes, { missing: [], extra: [] })
+  assert.deepEqual(report.rules, { missing: [], extra: [] })
+
+  // 账号文件缺失才是真正的不可达
+  const broken = load('src/lib/reconcile.ts', {
+    '@/db': { db: { select: () => ({ from: () => Promise.resolve([]) }) } },
+    '@/db/schema': { domains: 'domains', mailboxes: 'mailboxes', routingRules: 'routingRules' },
+    './dms': {
+      DMS_CONFIG_DIR: '/tmp/docker-mailserver',
+      readContainerFile: async () => ({ ok: false, error: 'Mail service command failed (exit 1)', stderr: '' }),
+    },
+    './sync': { ruleAliasAddress: () => null, syncAliasAdd: async () => ({ ok: true }), syncAliasDelete: async () => ({ ok: true }), syncMailboxDelete: async () => ({ ok: true }), syncError: () => 'error' },
+    './prefix-sync': { syncPrefixRules: async () => ({ ok: true, count: 0 }) },
+    '@/lib/i18n/translate': i18nMocks['@/lib/i18n/translate'],
+  })
+  const brokenReport = await broken.runReconcile()
+  assert.equal(brokenReport.dmsReachable, false, '账号文件读不到才是服务不可达')
+  assert.equal(brokenReport.errors.length, 1)
+})
+

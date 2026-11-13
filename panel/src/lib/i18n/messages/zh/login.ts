@@ -2,6 +2,7 @@ const login = {
   invalidCredentials: '用户名或密码错误',
   networkError: '暂时无法连接，请检查网络后重试。',
   tooManyAttempts: '登录尝试过于频繁，请在 15 分钟后重试。',
+  originRejected: '登录被拒绝：面板地址与访问地址不一致。请用面板配置的域名访问，或检查 PANEL_URL 配置。',
   adminCreated: '管理员已创建，请登录',
   noAdminLead: '尚未创建管理员。请通过 SSH 登录服务器并运行',
   noAdminTail: '，然后返回此页登录。',

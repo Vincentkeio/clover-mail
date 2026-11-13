@@ -2,6 +2,7 @@ const login = {
   invalidCredentials: 'Invalid username or password',
   networkError: 'Unable to connect. Check your connection and try again.',
   tooManyAttempts: 'Too many sign-in attempts. Please try again in 15 minutes.',
+  originRejected: 'Sign-in rejected: the panel address does not match the address you are using. Open the configured panel domain, or check PANEL_URL.',
   adminCreated: 'Administrator created, please sign in',
   noAdminLead: 'No administrator yet. Sign in to the server over SSH and run',
   noAdminTail: ', then come back to this page to sign in.',

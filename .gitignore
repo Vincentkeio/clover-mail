@@ -36,6 +36,7 @@ __pycache__/
 
 # 助手内部状态（本地笔记，不发布）
 .workbuddy-ai/
+.workbuddy/
 work/
 .clover-compose-install.lock
 .clover-source-revision

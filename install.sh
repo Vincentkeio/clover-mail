@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# clover 三叶草邮局 — 一键安装器 v2.0.12
+# clover 三叶草邮局 — 一键安装器 v2.0.13
 #
 #   bash install.sh                          # 交互式安装（推荐）
 #   bash install.sh --non-interactive        # 从环境变量读参数（自动化/CI）
@@ -72,7 +72,7 @@ run_sh() {
 printf "${CYAN}"
 cat <<'EOF'
    ╭──────────────────────────────────────────╮
-   │   🍀  clover 三叶草邮局 · 一键安装 v2.0.12│
+   │   🍀  clover 三叶草邮局 · 一键安装 v2.0.13│
    │   自托管 Docker 邮局 + DNS 一键推送 CF    │
    ╰──────────────────────────────────────────╯
 EOF
@@ -359,6 +359,11 @@ else
   set_env MAIL_DOMAIN      "$MAIL_DOMAIN"
   set_env MAIL_HOSTNAME    "$MAIL_HOSTNAME"
   set_env PANEL_HOSTNAME   "$PANEL_HOSTNAME"
+  # 面板对外地址必须显式给出。共享 nginx/Caddy 模式下 TLS 在代理层终止，
+  # 转到面板容器的是明文 HTTP，面板从 X-Forwarded-Proto 推断只能得到 http://，
+  # 于是登录/Passkey/Roundcube SSO 的 Origin 校验全部 403，前端显示为
+  # 「用户名或密码错误」——密码再对也登不进去。
+  set_env PANEL_URL        "${CLOVER_PANEL_URL:-https://${PANEL_HOSTNAME}}"
   set_env ACME_EMAIL       "$ACME_EMAIL"
   set_env TZ               "$TZ"
   set_env SESSION_SECRET   "$SESSION_SECRET"

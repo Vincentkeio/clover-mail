@@ -44,7 +44,14 @@ export default function LoginForm({ error, created, needsAdmin = false }: { erro
         setMsg(t('login.invalidTotp'))
         return
       }
-      setMsg(t(data.error === 'too_many_attempts' ? 'login.tooManyAttempts' : 'login.invalidCredentials'))
+      // 403 invalid_origin 是面板地址配置问题，不是密码错误。
+      // 若不单独提示，用户会反复重输正确密码却始终登不进去。
+      const messageKey = data.error === 'too_many_attempts'
+        ? 'login.tooManyAttempts'
+        : data.error === 'invalid_origin'
+          ? 'login.originRejected'
+          : 'login.invalidCredentials'
+      setMsg(t(messageKey))
     } catch {
       setMsg(t('login.networkError'))
     } finally {

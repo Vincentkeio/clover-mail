@@ -104,6 +104,14 @@ set_env() {
   fi
 }
 
+# 面板对外地址。老部署的 .env 里没有这项，而共享入口（宿主机 nginx/Caddy 终止 TLS）
+# 时面板只能从转发头推断出 http://，导致登录/Passkey/SSO 的 Origin 校验一律 403，
+# 前端却显示「用户名或密码错误」，用户永远登不进去。这里补全为显式地址。
+if [ -f .env ] && ! grep -q '^PANEL_URL=..*' .env && [ -n "${PANEL_HOSTNAME:-}" ]; then
+  set_env PANEL_URL "https://${PANEL_HOSTNAME}"
+  log "已补全 PANEL_URL=https://${PANEL_HOSTNAME}（修复反向代理下的登录被拒问题）"
+fi
+
 if [ -f .env ] && [ "${CLOVER_SHARED_CADDY:-0}" != "1" ] \
   && { port_in_use 80 || port_in_use 443; } \
   && command -v python3 >/dev/null 2>&1; then
