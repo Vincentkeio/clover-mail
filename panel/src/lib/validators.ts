@@ -99,7 +99,8 @@ export function updateRuleSchema(t: Translator = fallbackTranslator) {
 }
 
 export const settingsPatchSchema = z.object({
-  vpsIp: z.string().ip({ version: 'v4' }).optional(),
+  // zod 4 移除了 z.string().ip()，改为顶层 z.ipv4()。
+  vpsIp: z.ipv4().optional(),
   dnsMode: z.enum(['cloudflare', 'manual']).optional(),
   cfApiToken: z.string().trim().min(1).max(4096).optional(),
   dmarcPolicy: z.enum(['none', 'quarantine', 'reject']).optional(),

@@ -1,6 +1,6 @@
 {
   "name": "clover-panel",
-  "version": "2.0.13",
+  "version": "2.0.14",
   "private": true,
   "overrides": {
     "postcss": "^8.5.31",
@@ -31,7 +31,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
