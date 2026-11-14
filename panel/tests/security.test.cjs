@@ -456,3 +456,26 @@ test('reconcile stays reachable when no alias file exists yet', async () => {
   assert.equal(brokenReport.errors.length, 1)
 })
 
+
+test('session cookie uses SameSite=Lax so an http→https redirect keeps the user signed in', () => {
+  // 现代浏览器按 schemeful same-site 判定：http://host 与 https://host 属于不同站点。
+  // SameSite=Strict 会让浏览器在 http→https 的 301 跳转中拒绝携带 cookie，
+  // 用户登录后立刻被弹回登录页，形成无法进入面板的死循环。
+  const session = load('src/lib/session.ts')
+  assert.equal(session.sessionCookie.options.sameSite, 'lax', '登录 cookie 必须是 Lax')
+  assert.equal(session.sessionCookie.options.httpOnly, true)
+  assert.equal(session.sessionCookie.options.path, '/')
+
+  // Lax 只在顶级 GET 导航时附带 cookie；写操作走 POST/PATCH/DELETE，跨站不发送，
+  // CSRF 防护另由 hasTrustedOrigin 的 Origin 校验兜底。
+  const { hasTrustedOrigin } = load('src/lib/request-origin.ts')
+  const prev = process.env.PANEL_URL
+  process.env.PANEL_URL = 'https://panel.example.test'
+  try {
+    const h = (o) => new Headers(o)
+    assert.equal(hasTrustedOrigin(h({ host: 'panel.example.test', 'x-forwarded-proto': 'https', origin: 'https://evil.test', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'cors' })), false, '跨站写操作必须被拒')
+    assert.equal(hasTrustedOrigin(h({ host: 'panel.example.test', 'x-forwarded-proto': 'https', origin: 'https://evil.test', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' })), false, '跨站导航同样被拒')
+  } finally {
+    if (prev === undefined) delete process.env.PANEL_URL; else process.env.PANEL_URL = prev
+  }
+})

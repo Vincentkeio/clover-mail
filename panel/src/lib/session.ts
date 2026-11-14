@@ -55,7 +55,12 @@ export const sessionCookie = {
   options: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict' as const,
+    // 必须是 lax，不能用 strict。现代浏览器按 schemeful same-site 判定，
+    // http://host 与 https://host 属于不同站点；用户从 http 进入被 301 到 https 时，
+    // strict 会拒绝携带 cookie，导致登录后又被弹回登录页，形成死循环。
+    // lax 只在顶级 GET 导航时附带 cookie，跨站 POST 仍不发送，CSRF 防护由
+    // hasTrustedOrigin 的 Origin 校验兜底，安全性不受影响。
+    sameSite: 'lax' as const,
     path: '/',
   },
 }
