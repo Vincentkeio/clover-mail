@@ -6,11 +6,11 @@
  * 这里用浏览器的 Fetch Metadata 与 Origin 作为判断依据。
  *
  * 必须容纳三类真实调用方：
- * 1. 浏览器页面内 fetch/XHR —— 一定带 Origin，走严格比对；
+ * 1. 浏览器页面内 fetch/XHR —— 有 Origin 时严格比对；同源 GET 可能不带 Origin；
  * 2. 浏览器地址栏/书签导航（GET）—— 不带 Origin，Sec-Fetch-Mode 为 navigate；
  * 3. cron / CLI / 容器内回环（Bearer token）—— 完全没有 Fetch Metadata 头。
  *
- * 收紧要点：仅当「确认为浏览器发起的子资源请求却缺少 Origin」时拒绝。
+ * 收紧要点：缺少 Origin 的子资源请求必须由 Fetch Metadata 确认同源。
  * 非浏览器客户端不受影响，GET 导航也不会被误杀。
  */
 export function hasTrustedOrigin(headers: Pick<Headers, 'get'>, requestUrl?: string): boolean {
@@ -26,10 +26,9 @@ export function hasTrustedOrigin(headers: Pick<Headers, 'get'>, requestUrl?: str
 
   const origin = headers.get('origin')
   if (!origin) {
-    // 浏览器发起的 fetch/XHR 必然携带 Origin。缺失只可能是两种情况：
-    // 非浏览器客户端（无 Fetch Metadata），或地址栏/顶级导航。两者均可信。
-    // 若浏览器声明这是子资源请求却没有 Origin，则视为异常并拒绝。
-    if (mode && !navigating) return false
+    // 同源 GET（包括 Next.js 客户端导航）可能没有 Origin，浏览器的
+    // Sec-Fetch-Site 可以证明它是同源请求。未知来源的子资源仍拒绝。
+    if (mode && !navigating && site !== 'same-origin') return false
     return true
   }
 

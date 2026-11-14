@@ -1,11 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useI18n } from '@/lib/i18n/client'
 
 export default function LoginForm({ error, created, needsAdmin = false }: { error?: string; created?: string; needsAdmin?: boolean }) {
-  const router = useRouter()
   const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(
@@ -29,8 +27,7 @@ export default function LoginForm({ error, created, needsAdmin = false }: { erro
       const data = await res.json().catch(() => ({}))
 
       if (res.ok) {
-        router.replace('/')
-        router.refresh()
+        window.location.replace('/')
         return
       }
       if (data.error === 'totp_required') {
@@ -86,8 +83,7 @@ export default function LoginForm({ error, created, needsAdmin = false }: { erro
         setMsg(d.error ?? t('login.passkeyFailed'))
         return
       }
-      router.replace('/')
-      router.refresh()
+      window.location.replace('/')
     } catch (err) {
       setMsg(t('login.passkeyInterrupted', { message: err instanceof Error ? err.message : String(err) }))
     } finally {

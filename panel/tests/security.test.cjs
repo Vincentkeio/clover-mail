@@ -285,7 +285,7 @@ test('cookie authentication rejects sibling-site CSRF, scheme changes and malfor
   } finally { if (previous === undefined) delete process.env.PANEL_URL; else process.env.PANEL_URL = previous }
 })
 
-test('origin tightening blocks browser subresource requests without Origin but keeps cron and navigation working', () => {
+test('origin checks allow same-origin requests without Origin and block untrusted browser requests', () => {
   const previous = process.env.PANEL_URL
   process.env.PANEL_URL = 'https://panel.example.test'
   try {
@@ -295,7 +295,11 @@ test('origin tightening blocks browser subresource requests without Origin but k
     // 1. 面板自身页面的 fetch：带匹配 Origin，放行
     assert.equal(check({ origin: 'https://panel.example.test', 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors' }), true)
 
-    // 2. 收紧的核心：浏览器声明是子资源请求却没有 Origin —— 以前直接放行，现在拒绝
+    // 2. 同源页面导航和 GET 请求可能没有 Origin，仍应保留登录状态。
+    for (const mode of ['cors', 'same-origin', 'no-cors']) {
+      assert.equal(check({ 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': mode }), true, `mode=${mode} 同源请求应放行`)
+    }
+    // 缺少来源信息的浏览器子资源请求仍拒绝。
     for (const mode of ['cors', 'same-origin', 'no-cors']) {
       assert.equal(check({ 'sec-fetch-mode': mode }), false, `mode=${mode} 缺少 Origin 应拒绝`)
     }
